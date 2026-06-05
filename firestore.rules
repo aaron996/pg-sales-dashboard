@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable, highly secure primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'luongthevinh996@gmail.com' ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dev']
+        )
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Strict validator for User Profile schema
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role in ['admin', 'user', 'dev', 'pending'] &&
+             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 256)) &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    match /users/{userId} {
+      // Signed in users can read profiles to see name/role, but only owner or admins can modify
+      allow read: if isSignedIn();
+
+      // Create: User can create their own profile, or Admin can pre-create/seed profiles
+      allow create: if isValidId(userId) && isValidUser(request.resource.data) && (
+        (isOwner(userId) && (
+          (request.resource.data.role == 'user') || 
+          (request.auth.token.email == 'luongthevinh996@gmail.com' && request.resource.data.role == 'dev') ||
+          (request.auth.token.email == 'admin@interdist.com.vn' && request.resource.data.role == 'admin')
+        )) ||
+        isAdmin()
+      );
+
+      // Update: Owner can update their details (except their role/uid/email which are immutable). Admin can update anything.
+      allow update: if isValidId(userId) && isValidUser(request.resource.data) && (
+        (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.uid == resource.data.uid && request.resource.data.email == resource.data.email) ||
+        isAdmin()
+      );
+
+      // Delete: admin only
+      allow delete: if isAdmin();
+    }
+
+    match /configurations/{configId} {
+      // Allow any authentitcated user to view or modify general configurations
+      allow read, write: if isSignedIn();
+    }
+  }
+}

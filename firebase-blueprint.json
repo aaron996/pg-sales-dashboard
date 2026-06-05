@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "Stores user registration metadata, identity, and authorization role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Global unique ID corresponding to Firebase Auth UID." },
+        "email": { "type": "string", "description": "User email address." },
+        "displayName": { "type": "string", "description": "User profile name." },
+        "photoURL": { "type": "string", "description": "User profile avatar photo URL." },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "Role classification: either 'admin' or 'user'." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the user account was first initialized." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last updates made to the profile." }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "configuration": {
+      "title": "Application Configuration",
+      "description": "General application configuration document, containing key-value data mappings.",
+      "type": "object",
+      "properties": {
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when this config was updated." },
+        "data": { "type": "object", "description": "Configuration payload structure." }
+      },
+      "required": ["data"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Collection of user identities and roles used for access control."
+    },
+    "/configurations/{configId}": {
+      "schema": "configuration",
+      "description": "Application settings, catalog prices, target list, and supervisor configurations."
+    }
+  }
+}
