@@ -417,7 +417,7 @@ const App = () => {
               role: isDefaultDev ? 'dev' : (isDefaultAdmin ? 'admin' : 'pending'),
             };
             try {
-              await supabase
+              const { error: insertError } = await supabase
                 .from('profiles')
                 .insert({
                   uid: profile.uid,
@@ -428,6 +428,23 @@ const App = () => {
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                 });
+              if (insertError) throw insertError;
+
+              // If role is pending, automatically trigger email approval request to admin
+              if (profile.role === 'pending') {
+                fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    email: profile.email,
+                    displayName: profile.displayName
+                  })
+                }).catch(errMail => {
+                  console.error('Failed to trigger automatic approval email', errMail);
+                });
+              }
             } catch (errCre) {
               console.error("Error creating user profile inside onAuthStateChanged:", errCre);
             }
