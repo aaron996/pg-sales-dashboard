@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from './lib/firebase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from './lib/supabase';
 import { LoginScreen, UserProfileMenu, UserManagementPanel, UserProfile, PendingApprovalScreen } from './components/AuthAndUserMgmt';
 import { DEFAULT_BASELINE_DATA } from './data';
 import { 
@@ -362,56 +361,73 @@ const catLabel = (k) => {
 
 const App = () => {
   console.log("App.tsx mounting...");
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authReady, setAuthReady] = useState(false);
 
-  // Listen to Firebase Auth state
+  // Listen to Supabase Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const user = session?.user || null;
       if (user) {
         setCurrentUser(user);
-        // Look up the user's details and role in Firestore
-        const userDocRef = doc(db, 'users', user.uid);
+        // Look up the user's details and role in Supabase profiles table
         try {
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            let userRole = data.role || 'user';
+          const { data: profileData, error: fetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('uid', user.id)
+            .maybeSingle();
+
+          if (fetchError) throw fetchError;
+
+          if (profileData) {
+            let userRole = profileData.role || 'user';
             
             if (user.email === 'luongthevinh996@gmail.com' && userRole !== 'dev') {
               userRole = 'dev';
               try {
-                await setDoc(userDocRef, { role: 'dev' }, { merge: true });
+                await supabase
+                  .from('profiles')
+                  .update({ role: 'dev', updatedAt: new Date().toISOString() })
+                  .eq('uid', user.id);
               } catch (err) {
                 console.error('Failed to auto-update dev role', err);
               }
             }
 
             setUserProfile({
-              uid: data.uid,
-              email: data.email,
-              displayName: data.displayName || user.displayName,
-              photoURL: data.photoURL || user.photoURL,
+              uid: profileData.uid,
+              email: profileData.email,
+              displayName: profileData.displayName || user.user_metadata?.full_name || user.user_metadata?.name || null,
+              photoURL: profileData.photoURL || user.user_metadata?.avatar_url || null,
               role: userRole as 'dev' | 'admin' | 'user' | 'pending',
             });
           } else {
-            // Document doesn't exist, create it in Firestore so we register the user
+            // Document doesn't exist, create it in profiles table so we register the user
             const isDefaultDev = user.email === 'luongthevinh996@gmail.com';
             const isDefaultAdmin = user.email === 'admin@interdist.com.vn';
+            const userDispName = user.user_metadata?.full_name || user.user_metadata?.name || null;
+            const userPhotoURL = user.user_metadata?.avatar_url || null;
             const profile: UserProfile = {
-              uid: user.uid,
+              uid: user.id,
               email: user.email || '',
-              displayName: user.displayName,
-              photoURL: user.photoURL,
+              displayName: userDispName,
+              photoURL: userPhotoURL,
               role: isDefaultDev ? 'dev' : (isDefaultAdmin ? 'admin' : 'pending'),
             };
             try {
-              await setDoc(userDocRef, {
-                ...profile,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
+              await supabase
+                .from('profiles')
+                .insert({
+                  uid: profile.uid,
+                  email: profile.email,
+                  displayName: profile.displayName,
+                  photoURL: profile.photoURL,
+                  role: profile.role,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
             } catch (errCre) {
               console.error("Error creating user profile inside onAuthStateChanged:", errCre);
             }
@@ -420,11 +436,13 @@ const App = () => {
         } catch (err) {
           console.error("Error fetching user profile:", err);
           // Fallback to local profile
+          const userDispName = user.user_metadata?.full_name || user.user_metadata?.name || null;
+          const userPhotoURL = user.user_metadata?.avatar_url || null;
           setUserProfile({
-            uid: user.uid,
+            uid: user.id,
             email: user.email || '',
-            displayName: user.displayName,
-            photoURL: user.photoURL,
+            displayName: userDispName,
+            photoURL: userPhotoURL,
             role: (user.email === 'luongthevinh996@gmail.com' ? 'dev' : 'pending') as 'dev' | 'admin' | 'user' | 'pending',
           });
         }
@@ -435,12 +453,12 @@ const App = () => {
       setAuthReady(true);
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       setView('dashboard');
     } catch (err) {
       console.error("Error signing out:", err);

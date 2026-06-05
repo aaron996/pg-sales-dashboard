@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { supabase, handleFirestoreError, OperationType } from '../lib/supabase';
 import { 
   PRODUCT_PRICES, STORE_MAPPING, STORE_SHIFT_CONFIGS, CUSTOM_TARGETS,
   setDynamicProductPrices, setDynamicStoreMapping, setDynamicStoreShiftConfigs, setDynamicCustomTargets,
@@ -15,31 +14,34 @@ import {
 
 export async function loadSystemConfigurations() {
   try {
-    const pricesDoc = await getDoc(doc(db, 'configurations', 'productPrices'));
-    if (pricesDoc.exists()) {
-      const data = pricesDoc.data().data;
-      if (data && Object.keys(data).length > 0) {
-        setDynamicProductPrices(data);
-      }
+    const { data: pricesData } = await supabase
+      .from('configurations')
+      .select('value')
+      .eq('key', 'productPrices')
+      .maybeSingle();
+    if (pricesData?.value?.data && Object.keys(pricesData.value.data).length > 0) {
+      setDynamicProductPrices(pricesData.value.data);
     }
 
-    const mappingDoc = await getDoc(doc(db, 'configurations', 'storeMapping'));
-    if (mappingDoc.exists()) {
-      const data = mappingDoc.data().data;
-      if (data && Object.keys(data).length > 0) {
-        setDynamicStoreMapping(data);
-      }
+    const { data: mappingData } = await supabase
+      .from('configurations')
+      .select('value')
+      .eq('key', 'storeMapping')
+      .maybeSingle();
+    if (mappingData?.value?.data && Object.keys(mappingData.value.data).length > 0) {
+      setDynamicStoreMapping(mappingData.value.data);
     }
 
-    const targetDoc = await getDoc(doc(db, 'configurations', 'storeTargets'));
-    if (targetDoc.exists()) {
-      const data = targetDoc.data().data;
-      if (data) {
-        setDynamicCustomTargets(data);
-      }
+    const { data: targetData } = await supabase
+      .from('configurations')
+      .select('value')
+      .eq('key', 'storeTargets')
+      .maybeSingle();
+    if (targetData?.value?.data) {
+      setDynamicCustomTargets(targetData.value.data);
     }
   } catch (error) {
-    console.error("Failed to load custom configurations from Firestore:", error);
+    console.error("Failed to load custom configurations from Supabase:", error);
   }
 }
 
@@ -143,11 +145,12 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
   const handleSavePricesToFirebase = async () => {
     showToast('Đang lưu bảng giá lên cơ sở dữ liệu cloud...', 'loading');
     try {
-      const docRef = doc(db, 'configurations', 'productPrices');
-      await setDoc(docRef, { 
-         data: pricesList, 
-         updatedAt: new Date().toISOString() 
-      });
+      const { error } = await supabase.from('configurations').upsert({
+        key: 'productPrices',
+        value: { data: pricesList, updatedAt: new Date().toISOString() },
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+      if (error) throw error;
       setDynamicProductPrices(pricesList);
       onConfigChanged();
       showToast('Đã đồng bộ & lưu bảng giá thành công lên hệ thống!', 'success');
@@ -235,11 +238,12 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
   const handleSaveStoreMapToFirebase = async () => {
     showToast('Đang lưu thông tin ánh xạ cửa hàng & SUP lên cloud...', 'loading');
     try {
-      const docRef = doc(db, 'configurations', 'storeMapping');
-      await setDoc(docRef, {
-        data: storeMapList,
-        updatedAt: new Date().toISOString()
-      });
+      const { error } = await supabase.from('configurations').upsert({
+        key: 'storeMapping',
+        value: { data: storeMapList, updatedAt: new Date().toISOString() },
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+      if (error) throw error;
       setDynamicStoreMapping(storeMapList);
       onConfigChanged();
       showToast('Đã lưu danh sách ánh xạ SUP & Cửa hàng thành công vĩnh viễn!', 'success');
@@ -315,11 +319,12 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
   const handleSaveTargetsToFirebase = async () => {
     showToast('Đang đồng bộ cấu hình target lên cơ sở dữ liệu cloud...', 'loading');
     try {
-      const docRef = doc(db, 'configurations', 'storeTargets');
-      await setDoc(docRef, {
-        data: customTargetsList,
-        updatedAt: new Date().toISOString()
-      });
+      const { error } = await supabase.from('configurations').upsert({
+        key: 'storeTargets',
+        value: { data: customTargetsList, updatedAt: new Date().toISOString() },
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+      if (error) throw error;
       setDynamicCustomTargets(customTargetsList);
       onConfigChanged();
       showToast('Thành công! Đã đồng bộ & áp dụng cấu hình Target mới lên dashboard!', 'success');
@@ -634,30 +639,36 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
       const mergedStores = { ...storeMapList, ...importResults.rawStores };
       const mergedTargets = { ...customTargetsList, ...importResults.rawTargets };
 
-      // 1. Sync to Firestore
+      // 1. Sync to Supabase
       if (importResults.skuCount > 0) {
-        await setDoc(doc(db, 'configurations', 'productPrices'), {
-          data: mergedPrices,
-          updatedAt: new Date().toISOString()
-        });
+        const { error } = await supabase.from('configurations').upsert({
+          key: 'productPrices',
+          value: { data: mergedPrices, updatedAt: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+        if (error) throw error;
         setDynamicProductPrices(mergedPrices);
         setPricesList(mergedPrices);
       }
 
       if (importResults.storeCount > 0) {
-        await setDoc(doc(db, 'configurations', 'storeMapping'), {
-          data: mergedStores,
-          updatedAt: new Date().toISOString()
-        });
+        const { error } = await supabase.from('configurations').upsert({
+          key: 'storeMapping',
+          value: { data: mergedStores, updatedAt: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+        if (error) throw error;
         setDynamicStoreMapping(mergedStores);
         setStoreMapList(mergedStores);
       }
 
       if (importResults.targetCount > 0) {
-        await setDoc(doc(db, 'configurations', 'storeTargets'), {
-          data: mergedTargets,
-          updatedAt: new Date().toISOString()
-        });
+        const { error } = await supabase.from('configurations').upsert({
+          key: 'storeTargets',
+          value: { data: mergedTargets, updatedAt: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+        if (error) throw error;
         setDynamicCustomTargets(mergedTargets);
         setCustomTargetsList(mergedTargets);
       }

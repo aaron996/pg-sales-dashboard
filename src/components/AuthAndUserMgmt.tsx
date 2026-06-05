@@ -1,21 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged, 
-  User as FirebaseUser 
-} from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  collection, 
-  onSnapshot, 
-  serverTimestamp 
-} from 'firebase/firestore';
-import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase, handleFirestoreError, OperationType } from '../lib/supabase';
 import { LogOut, Users, Shield, Trash2, Check, RefreshCw, User, Loader2 } from 'lucide-react';
 
 export interface UserProfile {
@@ -29,7 +14,7 @@ export interface UserProfile {
 }
 
 // 1. LOGIN SCREEN COMPONENT
-export const LoginScreen: React.FC<{ onAuthSuccess: (u: FirebaseUser, profile: UserProfile) => void }> = ({ onAuthSuccess }) => {
+export const LoginScreen: React.FC<{ onAuthSuccess: (u: SupabaseUser, profile: UserProfile) => void }> = ({ onAuthSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,69 +22,16 @@ export const LoginScreen: React.FC<{ onAuthSuccess: (u: FirebaseUser, profile: U
     setLoading(true);
     setError(null);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      const userDocRef = doc(db, 'users', user.uid);
-      let userDoc;
-      try {
-        userDoc = await getDoc(userDocRef);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
-      }
-
-      let profile: UserProfile;
-
-      if (!userDoc?.exists()) {
-        const isDefaultDev = user.email === 'luongthevinh996@gmail.com';
-        const isDefaultAdmin = user.email === 'admin@interdist.com.vn';
-        
-        profile = {
-          uid: user.uid,
-          email: user.email || '',
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          role: isDefaultDev ? 'dev' : (isDefaultAdmin ? 'admin' : 'pending'),
-        };
-
-        try {
-          await setDoc(userDocRef, {
-            ...profile,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.CREATE, `users/${user.uid}`);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
         }
-      } else {
-        const data = userDoc.data();
-        profile = {
-          uid: data.uid,
-          email: data.email,
-          displayName: data.displayName || user.displayName,
-          photoURL: data.photoURL || user.photoURL,
-          role: data.role || 'user',
-        };
-        
-        // Secure check to keep luongthevinh996@gmail.com as dev if somehow downgraded
-        if (user.email === 'luongthevinh996@gmail.com' && profile.role !== 'dev') {
-          profile.role = 'dev';
-          try {
-            await updateDoc(userDocRef, { 
-              role: 'dev',
-              updatedAt: serverTimestamp() 
-            });
-          } catch (err) {
-            handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
-          }
-        }
-      }
-
-      onAuthSuccess(user, profile);
+      });
+      if (error) throw error;
     } catch (err: any) {
       console.error(err);
       setError(err?.message || 'Có lỗi xảy ra khi đăng nhập bằng Google. Vui lòng thử lại.');
-    } finally {
       setLoading(false);
     }
   };
@@ -151,7 +83,7 @@ export const LoginScreen: React.FC<{ onAuthSuccess: (u: FirebaseUser, profile: U
 };
 
 
-export const PendingApprovalScreen: React.FC<{ user: FirebaseUser, profile: UserProfile, onLogout: () => void }> = ({ user, profile, onLogout }) => {
+export const PendingApprovalScreen: React.FC<{ user: SupabaseUser, profile: UserProfile, onLogout: () => void }> = ({ user, profile, onLogout }) => {
   return (
     <div className="login-screen-container">
       <div className="login-card" style={{ maxWidth: '440px', textAlign: 'center' }}>
@@ -171,7 +103,7 @@ export const PendingApprovalScreen: React.FC<{ user: FirebaseUser, profile: User
           >
             Gửi Email Yêu Cầu Duyệt
           </a>
-          <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => signOut(auth).then(onLogout)}>
+          <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => supabase.auth.signOut().then(onLogout)}>
             Đăng xuất / Đổi tài khoản
           </button>
         </div>
@@ -201,10 +133,10 @@ export const UserProfileMenu: React.FC<{
 
   const handleSwitchAccount = async () => {
     try {
-      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      await supabase.auth.signOut();
       onLogout();
     } catch (err) {
-      console.error("Error setting custom param or logging out:", err);
+      console.error("Error logging out:", err);
     }
   };
 
@@ -278,37 +210,36 @@ export const UserManagementPanel: React.FC<{
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<'dev' | 'admin' | 'user'>('user');
 
-  useEffect(() => {
+  const fetchUsers = async () => {
     setLoading(true);
     setErrorMsg(null);
-    const usersCollectionRef = collection(db, 'users');
-    
-    const unsubscribe = onSnapshot(usersCollectionRef, (snapshot) => {
-      const list: UserProfile[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        list.push({
-          uid: docSnap.id,
-          email: data.email || '',
-          displayName: data.displayName || null,
-          photoURL: data.photoURL || null,
-          role: data.role || 'user',
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-        });
-      });
-      setUsersList(list);
-      setLoading(false);
-    }, (error) => {
-      try {
-        handleFirestoreError(error, OperationType.LIST, 'users');
-      } catch (err: any) {
-        setErrorMsg('Không có quyền tải danh sách User. Chỉ Quản trị viên mới được truy cập.');
-        setLoading(false);
-      }
-    });
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('createdAt', { ascending: false });
+      if (error) throw error;
 
-    return () => unsubscribe();
+      const list: UserProfile[] = (data || []).map((row: any) => ({
+        uid: row.uid,
+        email: row.email || '',
+        displayName: row.displayName || null,
+        photoURL: row.photoURL || null,
+        role: row.role || 'user',
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+      setUsersList(list);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg('Không có quyền tải danh sách User. Chỉ Quản trị viên mới được truy cập.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
   }, []);
 
   useEffect(() => {
@@ -338,18 +269,18 @@ export const UserManagementPanel: React.FC<{
     
     setActionLoading(userId);
     try {
-      const userDocRef = doc(db, 'users', userId);
-      await updateDoc(userDocRef, {
-        role: nextRole,
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          role: nextRole,
+          updatedAt: new Date().toISOString()
+        })
+        .eq('uid', userId);
+      if (error) throw error;
+      await fetchUsers();
     } catch (err: any) {
       console.error(err);
-      try {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
-      } catch (e: any) {
-        setErrorMsg('Thay đổi vai trò thất bại: Lỗi bảo mật hoặc quyền hạn.');
-      }
+      setErrorMsg('Thay đổi vai trò thất bại: Lỗi bảo mật hoặc quyền hạn.');
     } finally {
       setActionLoading(null);
     }
@@ -374,15 +305,15 @@ export const UserManagementPanel: React.FC<{
     setDeleteConfirmId(null);
     setActionLoading(userId);
     try {
-      const userDocRef = doc(db, 'users', userId);
-      await deleteDoc(userDocRef);
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('uid', userId);
+      if (error) throw error;
+      await fetchUsers();
     } catch (err: any) {
       console.error(err);
-      try {
-        handleFirestoreError(err, OperationType.DELETE, `users/${userId}`);
-      } catch (e: any) {
-        setErrorMsg('Xóa tài khoản thất bại: Lỗi bảo mật hoặc quyền hạn.');
-      }
+      setErrorMsg('Xóa tài khoản thất bại: Lỗi bảo mật hoặc quyền hạn.');
     } finally {
       setActionLoading(null);
     }
@@ -400,21 +331,24 @@ export const UserManagementPanel: React.FC<{
       ];
       
       for (const item of seeds) {
-        const userDocRef = doc(db, 'users', item.uid);
-        await setDoc(userDocRef, {
-          ...item,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            uid: item.uid,
+            email: item.email,
+            displayName: item.displayName,
+            photoURL: item.photoURL,
+            role: item.role,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }, { onConflict: 'uid' });
+        if (error) throw error;
       }
-      setErrorMsg('Đã tải và lưu thành công 5 thành viên mẫu (Supervisors & BAs) vào Firestore database!');
+      await fetchUsers();
+      setErrorMsg('Đã tải và lưu thành công 5 thành viên mẫu (Supervisors & BAs) vào Supabase database!');
     } catch (errKey: any) {
       console.error(errKey);
-      try {
-        handleFirestoreError(errKey, OperationType.CREATE, 'users');
-      } catch (e: any) {
-        setErrorMsg('Lỗi khi seed dữ liệu: Google Auth/Firestore permissions.');
-      }
+      setErrorMsg('Lỗi khi seed dữ liệu: Quyền hạn Supabase hoặc kết nối mạng.');
     } finally {
       setActionLoading(null);
     }
@@ -433,7 +367,6 @@ export const UserManagementPanel: React.FC<{
     setActionLoading('creating');
     try {
       const generatedUid = `user_${Date.now()}`;
-      const userDocRef = doc(db, 'users', generatedUid);
       const newProfile: UserProfile = {
         uid: generatedUid,
         email: newUserEmail.trim(),
@@ -442,12 +375,20 @@ export const UserManagementPanel: React.FC<{
         role: newUserRole,
       };
 
-      await setDoc(userDocRef, {
-        ...newProfile,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          uid: newProfile.uid,
+          email: newProfile.email,
+          displayName: newProfile.displayName,
+          photoURL: newProfile.photoURL,
+          role: newProfile.role,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      if (error) throw error;
 
+      await fetchUsers();
       setErrorMsg(`Đã thêm thành công thành viên: ${newUserName}`);
       // Reset inputs
       setNewUserName('');
@@ -456,11 +397,7 @@ export const UserManagementPanel: React.FC<{
       setIsAddFormOpen(false);
     } catch (err: any) {
       console.error(err);
-      try {
-        handleFirestoreError(err, OperationType.CREATE, 'users');
-      } catch (e: any) {
-        setErrorMsg('Thêm thành viên thất bại: Hệ thống lỗi hoặc phân quyền rules từ chối.');
-      }
+      setErrorMsg('Thêm thành viên thất bại: Hệ thống lỗi hoặc phân quyền rules từ chối.');
     } finally {
       setActionLoading(null);
     }
