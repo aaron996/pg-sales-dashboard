@@ -1409,7 +1409,9 @@ const ExportExcelDialog = ({ open, onClose }) => {
 
   const dateRangeBounds = React.useMemo(() => {
     let flatRawRows: any[] = [];
-    if (D.rawRows && D.rawRows.length > 0) {
+    if (D.tables_data?.raw_rows && D.tables_data.raw_rows.length > 0) {
+      flatRawRows = D.tables_data.raw_rows;
+    } else if (D.rawRows && D.rawRows.length > 0) {
       flatRawRows = D.rawRows;
     } else {
       const synthRows: any[] = [];
@@ -1483,7 +1485,9 @@ const ExportExcelDialog = ({ open, onClose }) => {
 
       // Determine dates bounds and target year/month index from flatRawRows
       let flatRawRows: any[] = [];
-      if (D.rawRows && D.rawRows.length > 0) {
+      if (D.tables_data?.raw_rows && D.tables_data.raw_rows.length > 0) {
+        flatRawRows = D.tables_data.raw_rows;
+      } else if (D.rawRows && D.rawRows.length > 0) {
         flatRawRows = D.rawRows;
       } else {
         const synthRows: any[] = [];

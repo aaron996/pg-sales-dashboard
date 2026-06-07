@@ -449,6 +449,9 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
     rawTargets: Record<string, number>;
   } | null>(null);
 
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successPopupInfo, setSuccessPopupInfo] = useState<{ title: string; message: string; details: string[] } | null>(null);
+
   const [dragActive, setDragActive] = useState(false);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -662,6 +665,16 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
         });
 
         showToast('Nạp nội dung tệp Excel thành công! Vui lòng xem bản phác thảo và ấn xác nhận.', 'success');
+        setSuccessPopupInfo({
+          title: 'Import File Thành Công!',
+          message: `Đã đọc thành công tệp Excel "${file.name}". Bạn vui lòng kiểm tra lại thông tin phác thảo bên dưới và bấm nút "Xác Nhận & Lưu Lên Cloud" để cập nhật cấu hình hệ thống.`,
+          details: [
+            `Số lượng SKU Đơn giá nhận diện: ${skuCount} dòng`,
+            `Số lượng Ánh xạ Cửa hàng - SUP: ${storeCount} dòng`,
+            `Số lượng Chỉ tiêu Target: ${targetCount} dòng`
+          ]
+        });
+        setShowSuccessPopup(true);
       } catch (err: any) {
         setImportResults({
           success: false,
@@ -725,6 +738,16 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
 
       onConfigChanged();
       showToast('Đã áp dụng & lưu cấu hình toàn bộ lên Supabase Cloud!', 'success');
+      setSuccessPopupInfo({
+        title: 'Đồng Bộ Thành Công!',
+        message: 'Tất cả các cấu hình mới đã được ghi đè và đồng bộ hóa thành công lên Supabase Cloud database! Hệ thống dashboard sẽ tự động cập nhật số liệu theo cấu hình mới này.',
+        details: [
+          `Đã cập nhật bảng giá SKU: ${importResults.skuCount} dòng`,
+          `Đã cập nhật danh sách cửa hàng: ${importResults.storeCount} dòng`,
+          `Đã cập nhật chỉ tiêu Target: ${importResults.targetCount} dòng`
+        ]
+      });
+      setShowSuccessPopup(true);
       setImportResults(null);
     } catch (e) {
       showToast('Gặp lỗi khi tải cấu hình lên Cloud!', 'error');
@@ -1578,6 +1601,101 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
 
         </div>
       </div>
+
+      {showSuccessPopup && successPopupInfo && (
+        <div 
+          className="tele-overlay anim-rise"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(12px)'
+          }}
+          onClick={() => setShowSuccessPopup(false)}
+        >
+          <div 
+            className="report-modal"
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              padding: '32px',
+              borderRadius: '24px',
+              background: 'var(--c-surface)',
+              border: '1px solid var(--c-border)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+              textAlign: 'center',
+              position: 'relative'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div 
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.1)',
+                color: 'var(--c-good)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                fontSize: '28px'
+              }}
+            >
+              ✓
+            </div>
+            
+            <h3 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--c-text-1)' }}>
+              {successPopupInfo.title}
+            </h3>
+            
+            <p style={{ fontSize: '13.5px', color: 'var(--c-text-2)', lineHeight: 1.5, margin: '0 0 20px 0', fontWeight: 500 }}>
+              {successPopupInfo.message}
+            </p>
+            
+            {successPopupInfo.details && successPopupInfo.details.length > 0 && (
+              <div 
+                style={{
+                  background: 'var(--c-surface-2)',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--c-border)',
+                  textAlign: 'left',
+                  fontSize: '12.5px',
+                  color: 'var(--c-text-2)',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  fontWeight: 600
+                }}
+              >
+                {successPopupInfo.details.map((detail, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '6px', height: '6px', backgroundColor: 'var(--c-good)', borderRadius: '50%' }} />
+                    <span>{detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <button 
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px', borderRadius: '12px', fontWeight: 700, fontSize: '13px' }}
+              onClick={() => setShowSuccessPopup(false)}
+            >
+              Đồng Ý
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
