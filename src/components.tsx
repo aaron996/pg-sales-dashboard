@@ -1378,8 +1378,6 @@ const ExportExcelDialog = ({ open, onClose }) => {
   const [period, setPeriod] = React.useState('mtd');
   const [isExporting, setIsExporting] = React.useState(false);
   const [error, setError] = React.useState('');
-  const [exportSummary, setExportSummary] = React.useState(true);
-  const [exportDetail, setExportDetail] = React.useState(false);
 
   const [customStart, setCustomStart] = React.useState('');
   const [customEnd, setCustomEnd] = React.useState('');
@@ -1484,140 +1482,67 @@ const ExportExcelDialog = ({ open, onClose }) => {
     try {
       setError('');
 
-      if (!exportSummary && !exportDetail) {
-        throw new Error('Vui lòng chọn ít nhất một loại báo cáo để xuất.');
+      if (!hasRawData) {
+        throw new Error('Bạn chưa import data');
       }
 
       setIsExporting(true);
 
       const wb = XLSX.utils.book_new();
 
-      // ====== SHEET 1: Overview + Stores (from structured dashboard data) ======
-      if (exportSummary) {
-        const overview: any[][] = [
-          ['P&G SALES OPERATIONS DASHBOARD - INTERDIST'],
-          [],
-          ['Export time', new Date().toLocaleString('vi-VN')],
-          ['Period', period],
-          ['Channel', channel],
-          ['From', meta.start_day || ''],
-          ['To', meta.updated_to || ''],
-          [],
-          ['Channel', 'Actual MTD', 'Target Full', 'Achievement %']
-        ];
+      const rawRows: any[] = D?.tables_data?.raw_rows || D?.rawRows || [];
 
-        if ((channel === 'all' || channel === 'crv') && D.crv?.total) {
-          overview.push([
-            'CRV',
-            fmtNum(D.crv.total.actual_mtd),
-            fmtNum(D.crv.total.target_full),
-            safePct(D.crv.total.actual_mtd, D.crv.total.target_full)
-          ]);
+      const cols = [
+        'Channel', 'Mã cửa hàng', 'Tên cửa hàng', 'Mã vùng',
+        'Mã nhân viên', 'Ngày báo cáo', 'Category',
+        'Item Name', 'Quantity', 'Unit Price', 'AMT', 'Project'
+      ];
+
+      const safeFormatDate = (dateVal: any) => {
+        if (!dateVal) return '';
+        if (dateVal instanceof Date) {
+          const y = dateVal.getFullYear();
+          const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+          const d = String(dateVal.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
         }
-        if ((channel === 'all' || channel === 'stmb') && D.stmb?.total) {
-          overview.push([
-            'STMB',
-            fmtNum(D.stmb.total.actual_mtd),
-            fmtNum(D.stmb.total.target_full),
-            safePct(D.stmb.total.actual_mtd, D.stmb.total.target_full)
+        if (typeof dateVal === 'string') return dateVal.split('T')[0];
+        return String(dateVal);
+      };
+
+      const buildDetailRows = (proj: string) => {
+        const rows: any[][] = [cols];
+        const filtered = rawRows.filter((r: any) => {
+          const p = String(r.Project || '').toLowerCase();
+          return proj === 'all' ? true : p === proj;
+        });
+        filtered.forEach((r: any) => {
+          rows.push([
+            r['Channel'] || (String(r.Project || '').toLowerCase() === 'crv' ? 'CRV' : 'STMB'),
+            r['Mã cửa hàng'] || '',
+            r['Tên cửa hàng'] || '',
+            r['Mã vùng'] || '',
+            r['Mã nhân viên'] || '',
+            safeFormatDate(r['Ngày báo cáo']),
+            r['Category'] || '',
+            r['Item Name'] || '',
+            fmtNum(r['Quantity']),
+            fmtNum(r['Unit Price']),
+            fmtNum(r['AMT']),
+            r['Project'] || ''
           ]);
-        }
+        });
+        return rows;
+      };
 
-        addSheet(wb, 'Overview', overview);
-
-        // Stores sheet
-        const storeRows: any[][] = [[
-          'Store Code', 'Store Name', 'Channel', 'Region', 'Supervisor',
-          'Actual MTD', 'Target Full', 'Achievement %'
-        ]];
-
-        const pushStores = (group: any, label: string) => {
-          (group?.stores || []).forEach((s: any) => {
-            if (channel !== 'all' && label.toLowerCase() !== channel) return;
-            const storeCode = String(s.code || '').trim().toUpperCase();
-            const mapInfo = STORE_MAPPING[storeCode];
-            const sup = mapInfo?.sup || (label === 'CRV' ? `Region ${s.region || ''}` : 'A. Tuấn (STMB)');
-            storeRows.push([
-              s.code || '',
-              s.store || s.name || '',
-              label,
-              s.region || '',
-              sup,
-              fmtNum(s.actual || s.actual_mtd || 0),
-              fmtNum(s.target || s.target_full || 0),
-              safePct(s.actual || s.actual_mtd, s.target || s.target_full)
-            ]);
-          });
-        };
-
-        if (channel === 'all' || channel === 'crv') pushStores(D.crv, 'CRV');
-        if (channel === 'all' || channel === 'stmb') pushStores(D.stmb, 'STMB');
-
-        addSheet(wb, 'Stores', storeRows);
+      if (channel === 'all' || channel === 'crv') {
+        addSheet(wb, 'Raw CRV', buildDetailRows('crv'));
+      }
+      if (channel === 'all' || channel === 'stmb') {
+        addSheet(wb, 'Raw STMB', buildDetailRows('stmb'));
       }
 
-      // ====== SHEET 2: Raw Detail (only if raw data exists) ======
-      if (exportDetail) {
-        const rawRows: any[] = D?.tables_data?.raw_rows || D?.rawRows || [];
-
-        const cols = [
-          'Channel', 'Mã cửa hàng', 'Tên cửa hàng', 'Mã vùng',
-          'Mã nhân viên', 'Ngày báo cáo', 'Category',
-          'Item Name', 'Quantity', 'Unit Price', 'AMT', 'Project'
-        ];
-
-        const safeFormatDate = (dateVal: any) => {
-          if (!dateVal) return '';
-          if (dateVal instanceof Date) {
-            const y = dateVal.getFullYear();
-            const m = String(dateVal.getMonth() + 1).padStart(2, '0');
-            const d = String(dateVal.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-          }
-          if (typeof dateVal === 'string') return dateVal.split('T')[0];
-          return String(dateVal);
-        };
-
-        const buildDetailRows = (proj: string) => {
-          const rows: any[][] = [cols];
-          const filtered = rawRows.filter((r: any) => {
-            const p = String(r.Project || '').toLowerCase();
-            return proj === 'all' ? true : p === proj;
-          });
-          filtered.forEach((r: any) => {
-            rows.push([
-              r['Channel'] || (String(r.Project || '').toLowerCase() === 'crv' ? 'CRV' : 'STMB'),
-              r['Mã cửa hàng'] || '',
-              r['Tên cửa hàng'] || '',
-              r['Mã vùng'] || '',
-              r['Mã nhân viên'] || '',
-              safeFormatDate(r['Ngày báo cáo']),
-              r['Category'] || '',
-              r['Item Name'] || '',
-              fmtNum(r['Quantity']),
-              fmtNum(r['Unit Price']),
-              fmtNum(r['AMT']),
-              r['Project'] || ''
-            ]);
-          });
-          return rows;
-        };
-
-        if (rawRows.length === 0) {
-          // Add empty placeholder sheet
-          addSheet(wb, 'Raw Data (Trống)', [['Chưa có dữ liệu raw. Vui lòng import file Excel trước.']]);
-        } else {
-          if (channel === 'all' || channel === 'crv') {
-            addSheet(wb, 'Raw CRV', buildDetailRows('crv'));
-          }
-          if (channel === 'all' || channel === 'stmb') {
-            addSheet(wb, 'Raw STMB', buildDetailRows('stmb'));
-          }
-        }
-      }
-
-      const suffix = exportSummary && exportDetail ? 'Full' : (exportSummary ? 'Summary' : 'Detail');
-      const fileName = `PG_Interdist_Export_${channel}_${period}_${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const fileName = `PG_Interdist_Export_${channel}_${period}_Raw_${new Date().toISOString().slice(0,10)}.xlsx`;
 
       XLSX.writeFile(wb, fileName);
 
@@ -1664,36 +1589,16 @@ const ExportExcelDialog = ({ open, onClose }) => {
       >
         <h2 style={{ marginTop: 0 }}>Xuất Excel</h2>
         <p style={{ color: 'var(--c-text-2)', marginBottom: '20px' }}>
-          Tải dữ liệu dashboard ra file Excel.
+          Tải dữ liệu chi tiết (Raw Data) ra file Excel.
         </p>
 
-        <div style={{ display: 'grid', gap: '12px', margin: '0 0 20px 0' }}>
-          {/* Report type checkboxes */}
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--c-text-1)', marginBottom: '8px' }}>Loại báo cáo</div>
-            <div style={{ display: 'grid', gap: '8px', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--c-border)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--c-text-1)', fontSize: '13px' }}>
-                <input
-                  type="checkbox"
-                  checked={exportSummary}
-                  onChange={e => setExportSummary(e.target.checked)}
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--c-accent, #0070f3)' }}
-                />
-                Báo cáo tổng hợp (Overview + Stores)
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--c-text-1)', fontSize: '13px' }}>
-                <input
-                  type="checkbox"
-                  checked={exportDetail}
-                  onChange={e => setExportDetail(e.target.checked)}
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--c-accent, #0070f3)' }}
-                />
-                Dữ liệu chi tiết (Raw Data)
-                {!hasRawData && <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>(cần import Excel)</span>}
-              </label>
-            </div>
+        {!hasRawData && (
+          <div style={{ color: '#ef4444', marginBottom: '16px', fontSize: '13px', padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
+            ⚠️ Bạn chưa import data
           </div>
+        )}
 
+        <div style={{ display: 'grid', gap: '12px', margin: '0 0 20px 0' }}>
           <label>
             Kênh (Channel)
             <select value={channel} onChange={e => setChannel(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }}>
@@ -1723,7 +1628,7 @@ const ExportExcelDialog = ({ open, onClose }) => {
           <button className="btn btn-ghost" onClick={onClose} disabled={isExporting}>
             Đóng
           </button>
-          <button className="btn btn-primary" onClick={exportExcel} disabled={isExporting}>
+          <button className="btn btn-primary" onClick={exportExcel} disabled={isExporting || !hasRawData}>
             {isExporting ? '⏳ Đang xuất...' : '📥 Tải Excel'}
           </button>
         </div>
