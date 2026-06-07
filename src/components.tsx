@@ -1628,7 +1628,15 @@ const ExportExcelDialog = ({ open, onClose }) => {
           <button className="btn btn-ghost" onClick={onClose} disabled={isExporting}>
             Đóng
           </button>
-          <button className="btn btn-primary" onClick={exportExcel} disabled={isExporting || !hasRawData}>
+          <button 
+            className="btn btn-primary" 
+            onClick={exportExcel} 
+            disabled={isExporting || !hasRawData}
+            style={{
+              opacity: (isExporting || !hasRawData) ? 0.5 : 1,
+              cursor: (isExporting || !hasRawData) ? 'not-allowed' : 'pointer'
+            }}
+          >
             {isExporting ? '⏳ Đang xuất...' : '📥 Tải Excel'}
           </button>
         </div>
