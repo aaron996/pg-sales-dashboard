@@ -2154,7 +2154,7 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClos
             </button>
           </div>
 
-          {uploadedList.length === 0 && (
+          {uploadedList.length === 0 && canClose && (
             <button 
               type="button" 
               disabled={loading}
