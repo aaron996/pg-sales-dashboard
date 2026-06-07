@@ -506,6 +506,17 @@ const App = () => {
   const [tempStart, setTempStart] = useState('');
   const [tempEnd, setTempEnd] = useState('');
 
+  React.useEffect(() => {
+    if (!dateRangeOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDateRangeOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dateRangeOpen]);
+
   const dateRangeBounds = useMemo(() => {
     const D = (window as any).INTERDIST_DATA;
     const rows = getFlatRawRows(D);
@@ -1261,7 +1272,7 @@ useEffect(() => {
             </header>
           )}
 
-          {view !== 'admin_users' && (
+          {view !== 'admin_users' && view !== 'configure' && (
             <div className="filterbar anim-rise" style={{ animationDelay: '120ms' }}>
               <div className="filter-group">
                 <span className="filter-label mono">CHANNEL</span>
@@ -1801,6 +1812,15 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
 };
 
 const BADrawer = ({ ba, onClose }) => {
+  React.useEffect(() => {
+    if (!ba) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [ba, onClose]);
+
   if (!ba) return null;
   const pct = ba.pct;
   const status = pct >= 40 ? 'good' : pct >= 30 ? 'warn' : 'bad';
@@ -2495,6 +2515,15 @@ const DashboardDebugConsole = ({ open, onClose, onOpen, excelOpen, setExcelOpen 
       terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [logs, open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
 
   const handleCopy = () => {
     const text = ((window as any).__DASHBOARD_LOGS || []).join('\n');

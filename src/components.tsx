@@ -1,6 +1,7 @@
 import { processExcelData, calculateStatus, matchSkuInCatalog } from './excelParser';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DEFAULT_BASELINE_DATA } from './data';
+import * as XLSX from 'xlsx';
 import { STORE_MAPPING, PRODUCT_PRICES } from './configData';
 
 // --- Component Source: tweaks-panel.jsx ---
@@ -1091,6 +1092,15 @@ SKU code: PG-PAN-320-S
     setTimeout(() => { setSent(false); onClose && onClose(); }, 1400);
   };
 
+  React.useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose && onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
@@ -1231,6 +1241,15 @@ const catLabel = (k: string) => {
 // --- Component Source: export-report.jsx ---
 /* === Export Report Preview === */
 const ExportReport = ({ open, project, pdata, onClose, onPrint }) => {
+  React.useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose && onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
   const isCRV = project === 'crv';
   const title = isCRV ? 'CRV BA Long Term' : 'STMB';
@@ -1354,11 +1373,6 @@ const ExportReport = ({ open, project, pdata, onClose, onPrint }) => {
 // --- Component Source: export-excel.jsx ---
 /* === Clean Excel Export Dialog === */
 const ExportExcelDialog = ({ open, onClose }) => {
-  if (!open) return null;
-
-  const D = (window as any).INTERDIST_DATA || {};
-  const meta = D?.crv?.meta || { start_day: '', updated_to: '' };
-
   const [target, setTarget] = React.useState('all');
   const [channel, setChannel] = React.useState('all');
   const [period, setPeriod] = React.useState('mtd');
@@ -1368,6 +1382,20 @@ const ExportExcelDialog = ({ open, onClose }) => {
   const [customStart, setCustomStart] = React.useState('');
   const [customEnd, setCustomEnd] = React.useState('');
 
+  React.useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isExporting) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose, isExporting]);
+
+  if (!open) return null;
+
+  const D = (window as any).INTERDIST_DATA || {};
+  const meta = D?.crv?.meta || { start_day: '', updated_to: '' };
+
   const safePct = (actual, target) => {
     actual = Number(actual) || 0;
     target = Number(target) || 0;
@@ -1375,8 +1403,8 @@ const ExportExcelDialog = ({ open, onClose }) => {
   };
 
   const addSheet = (wb, name, rows) => {
-    const ws = (window as any).XLSX.utils.aoa_to_sheet(rows);
-    (window as any).XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
   };
 
   const dateRangeBounds = React.useMemo(() => {
@@ -1451,11 +1479,7 @@ const ExportExcelDialog = ({ open, onClose }) => {
       setError('');
       setIsExporting(true);
 
-      if (typeof (window as any).XLSX === 'undefined') {
-        throw new Error('Thư viện (window as any).XLSX chưa load xong.');
-      }
-
-      const wb = (window as any).XLSX.utils.book_new();
+      const wb = XLSX.utils.book_new();
 
       // Determine dates bounds and target year/month index from flatRawRows
       let flatRawRows: any[] = [];
@@ -1713,7 +1737,7 @@ const ExportExcelDialog = ({ open, onClose }) => {
 
       const fileName = `PG_Interdist_Export_Vertical_${channel}_${period}_${new Date().toISOString().slice(0,10)}.xlsx`;
 
-      (window as any).XLSX.writeFile(wb, fileName);
+      XLSX.writeFile(wb, fileName);
 
       setTimeout(() => {
         setIsExporting(false);
@@ -1850,6 +1874,16 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light' }) => {
   });
 
   const isLight = theme === 'light';
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, loading]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -2004,7 +2038,11 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light' }) => {
         color: isLight ? '#0F172A' : '#F8FAFC',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         padding: '20px',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        animation: 'overlayFade 0.25s ease forwards'
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose();
       }}
     >
       <div 
@@ -2021,7 +2059,8 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light' }) => {
             : '0 24px 64px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.05)',
           padding: '40px',
           zIndex: 10,
-          position: 'relative'
+          position: 'relative',
+          animation: 'telePop 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
         }}
       >
         {/* Brand Logo & Title */}

@@ -386,6 +386,56 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
     }
   };
 
+  const handleDownloadBlankTemplate = () => {
+    showToast('Đang tạo tệp Excel mẫu chuẩn...', 'loading');
+    try {
+      // 1. Sheet Bảng Giá
+      const pRows = [
+        {
+          'SKU Sản phẩm': 'CRV.HAIRCARE.PANTENE_300ML',
+          'Ngành hàng': 'CRV',
+          'Đơn Giá (VND)': 120000
+        }
+      ];
+      const wsPrices = XLSX.utils.json_to_sheet(pRows);
+
+      // 2. Sheet Ánh xạ Store
+      const smRows = [
+        {
+          'Mã Cửa Hàng (Store Code)': 'COOP_LY_THUONG_KIET',
+          'Tên Cửa Hàng (Store Name)': 'Co.opmart Lý Thường Kiệt',
+          'Supervisor phụ trách (SUP)': 'HOA',
+          'Khu Vực (Region)': 'HCM'
+        }
+      ];
+      const wsStoreMap = XLSX.utils.json_to_sheet(smRows);
+
+      // 3. Sheet Target hiện hành
+      const activeTargetsRows = [
+        {
+          'Mã Cửa Hàng': 'COOP_LY_THUONG_KIET',
+          'Tên Cửa Hàng': 'Co.opmart Lý Thường Kiệt',
+          'Dự Án': 'crv',
+          'Target Gốc': 50000000,
+          'Target Hiện Hành (VND)': 50000000,
+          'Trạng Thế': 'Target gốc Excel'
+        }
+      ];
+      const wsTargets = XLSX.utils.json_to_sheet(activeTargetsRows);
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, wsPrices, 'Bang_Gia_SKU');
+      XLSX.utils.book_append_sheet(wb, wsStoreMap, 'Danh_Sach_SUP_Store');
+      XLSX.utils.book_append_sheet(wb, wsTargets, 'Cau_Hinh_Targets');
+
+      XLSX.writeFile(wb, `Mau_Cau_Hinh_Hethong_Interdist.xlsx`);
+      showToast('Đã tải tệp Excel mẫu chuẩn thành công!', 'success');
+    } catch (err) {
+      showToast('Gặp lỗi khi tạo tệp tin mẫu chuẩn!', 'error');
+      console.error(err);
+    }
+  };
+
 
   // --- NEW FEATURE: IMPORT EXCEL CONFIGURATION SHEET ---
   const [importResults, setImportResults] = useState<{
@@ -683,22 +733,18 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
   };
 
   return (
-    <div className="w-full" id="configure-panel">
+    <div id="configure-panel" className="anim-rise">
       {/* Toast Notification Bar */}
       {toast.type && (
-        <div className={`p-4 mb-6 rounded-2xl flex items-center justify-between border transition-all duration-300 shadow-md ${
-          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400' :
-          toast.type === 'error' ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400' :
-          'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400 animate-pulse'
-        }`}>
-          <div className="flex items-center gap-3">
-             {toast.type === 'success' && <CheckCircle size={18} className="text-emerald-500" />}
-             {toast.type === 'error' && <AlertCircle size={18} className="text-rose-500" />}
-             {toast.type === 'loading' && <RefreshCw size={18} className="text-blue-500 animate-spin" />}
-             <span className="text-sm font-semibold tracking-wide">{toast.message}</span>
+        <div className={`config-toast config-toast-${toast.type}`}>
+          <div className="config-toast-content">
+             {toast.type === 'success' && <CheckCircle size={18} className="good" />}
+             {toast.type === 'error' && <AlertCircle size={18} className="bad" />}
+             {toast.type === 'loading' && <RefreshCw size={18} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />}
+             <span>{toast.message}</span>
           </div>
           {toast.type !== 'loading' && (
-            <button onClick={clearToast} className="text-[10px] font-bold uppercase tracking-wider opacity-60 hover:opacity-100 px-3 py-1.5 rounded-lg bg-[var(--c-bg-2)] border border-[var(--c-border)] cursor-pointer transition-all">
+            <button onClick={clearToast} className="config-toast-close">
               Đóng
             </button>
           )}
@@ -706,134 +752,109 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
       )}
 
       {/* Header section designed beautifully and strictly conforming to main UI */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-6 mb-8 gap-4" style={{ borderBottom: '1px solid var(--c-border)' }}>
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight text-[var(--c-text-1)] flex items-center gap-2">
+      <div className="config-header-container">
+        <div className="config-title-group">
+          <div className="config-title-flex">
+            <h2 className="config-title">
               Cấu hình Hệ thống
             </h2>
-            <span className="flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30 rounded-full select-none shadow-sm">
-              <span className="status-dot w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Cloud Active (Supabase)
+            <span className="config-status-badge">
+              <span className="status-dot w-1.5 h-1.5 bg-emerald-500 rounded-full" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--c-good)' }}></span> Cloud Active (Supabase)
             </span>
           </div>
-          <p className="text-xs text-[var(--c-text-3)] font-semibold max-w-xl leading-relaxed">
+          <p className="config-desc">
             Quản lý tập trung bảng đơn giá SKU, phân công giám sát (SUP), và thiết lập chỉ tiêu Target. Dữ liệu được đồng bộ hóa an toàn.
           </p>
         </div>
-
-        {/* Dynamic Global Action: Download System State Sheet */}
-        <button 
-          onClick={handleExportSystemConfigs}
-          className="btn btn-secondary cursor-pointer shadow-sm hover:shadow-md hover:bg-[var(--c-surface-2)]/80 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-          style={{ padding: '9px 18px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 'bold' }}
-        >
-          <Download size={14} />
-          <span>Xuất tệp cấu hình (.xlsx)</span>
-        </button>
       </div>
 
       {/* Inner split layout with responsive sidebar menu */}
-      <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
+      <div className="config-layout">
         
         {/* Modern Subpanel Navigation Menu - Cohesive and Adaptive */}
-        <div className="flex flex-row lg:flex-col gap-1.5 overflow-x-auto lg:overflow-x-visible pb-2.5 lg:pb-0 lg:w-60 shrink-0 hide-scrollbar bg-[var(--c-bg-2)]/40 dark:bg-[var(--c-bg-2)]/20 p-2.5 rounded-2xl border border-[var(--c-border)]/50">
-          <div className="text-[9px] font-bold text-[var(--c-text-3)] uppercase tracking-wider mb-2.5 mt-1 hidden lg:block px-3">Quản lý Dữ liệu</div>
+        <div className="config-sidebar">
+          <div className="config-sidebar-section-title">Quản lý Dữ liệu</div>
           <button
             onClick={() => setActiveTab('prices')}
-            className={`flex items-center gap-3 px-4 py-3 text-[13px] font-bold rounded-xl text-left whitespace-nowrap transition-all duration-200 cursor-pointer ${
-              activeTab === 'prices' 
-                ? 'bg-[var(--c-accent)] text-white shadow-md shadow-[var(--c-accent)]/10 border border-[var(--c-accent)]' 
-                : 'text-[var(--c-text-2)] hover:bg-[var(--c-surface-2)]/80 hover:text-[var(--c-text-1)] border border-transparent'
-            }`}
+            className={`config-nav-btn ${activeTab === 'prices' ? 'active' : ''}`}
           >
-            <DollarSign size={15} className={activeTab === 'prices' ? 'text-white' : 'text-[var(--c-text-3)]'} />
+            <DollarSign size={15} />
             <span>Bảng Giá Sản Phẩm</span>
           </button>
 
           <button
             onClick={() => setActiveTab('sups')}
-            className={`flex items-center gap-3 px-4 py-3 text-[13px] font-bold rounded-xl text-left whitespace-nowrap transition-all duration-200 cursor-pointer ${
-              activeTab === 'sups' 
-                ? 'bg-[var(--c-accent)] text-white shadow-md shadow-[var(--c-accent)]/10 border border-[var(--c-accent)]' 
-                : 'text-[var(--c-text-2)] hover:bg-[var(--c-surface-2)]/80 hover:text-[var(--c-text-1)] border border-transparent'
-            }`}
+            className={`config-nav-btn ${activeTab === 'sups' ? 'active' : ''}`}
           >
-            <Users size={15} className={activeTab === 'sups' ? 'text-white' : 'text-[var(--c-text-3)]'} />
+            <Users size={15} />
             <span>Phân Công Supervisor</span>
           </button>
 
           <button
             onClick={() => setActiveTab('targets')}
-            className={`flex items-center gap-3 px-4 py-3 text-[13px] font-bold rounded-xl text-left whitespace-nowrap transition-all duration-200 cursor-pointer ${
-              activeTab === 'targets' 
-                ? 'bg-[var(--c-accent)] text-white shadow-md shadow-[var(--c-accent)]/10 border border-[var(--c-accent)]' 
-                : 'text-[var(--c-text-2)] hover:bg-[var(--c-surface-2)]/80 hover:text-[var(--c-text-1)] border border-transparent'
-            }`}
+            className={`config-nav-btn ${activeTab === 'targets' ? 'active' : ''}`}
           >
-            <Target size={15} className={activeTab === 'targets' ? 'text-white' : 'text-[var(--c-text-3)]'} />
+            <Target size={15} />
             <span>Quản Lý Target Store</span>
           </button>
 
-          <div className="my-2.5 border-b border-[var(--c-border)] hidden lg:block mx-2"></div>
-          <div className="text-[9px] font-bold text-[var(--c-text-3)] uppercase tracking-wider mb-2.5 mt-2 hidden lg:block px-3">Hệ thống</div>
+          <div className="config-sidebar-divider"></div>
+          <div className="config-sidebar-section-title">Hệ thống</div>
 
           <button
             onClick={() => setActiveTab('excel')}
-            className={`flex items-center gap-3 px-4 py-3 text-[13px] font-bold rounded-xl text-left whitespace-nowrap transition-all duration-200 cursor-pointer ${
-              activeTab === 'excel' 
-                ? 'bg-[var(--c-accent)] text-white shadow-md shadow-[var(--c-accent)]/10 border border-[var(--c-accent)]' 
-                : 'text-[var(--c-text-2)] hover:bg-[var(--c-surface-2)]/80 hover:text-[var(--c-text-1)] border border-transparent'
-            }`}
+            className={`config-nav-btn ${activeTab === 'excel' ? 'active' : ''}`}
           >
-            <FileSpreadsheet size={15} className={activeTab === 'excel' ? 'text-white' : 'text-[var(--c-text-3)]'} />
+            <FileSpreadsheet size={15} />
             <span>Nhập / Xuất Excel</span>
           </button>
         </div>
 
         {/* Dynamic Inner Configurations Screen */}
-        <div className="flex-1 min-w-0">
+        <div style={{ flex: 1, minWidth: 0 }}>
           
           {/* TAB 1: PRODUCT VALUE CONFIGURING */}
           {activeTab === 'prices' && (
-            <div className="space-y-6">
-              <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/35 text-[12.5px] text-blue-800 dark:text-blue-300 p-4 rounded-2xl flex gap-3 items-start shadow-sm">
-                <Info size={18} className="text-[var(--c-accent)] shrink-0 mt-0.5" />
-                <p className="leading-relaxed font-medium">
-                  <strong className="font-semibold text-blue-900 dark:text-blue-200">Lưu ý:</strong> Bảng đơn giá sản phẩm được sử dụng để quy đổi sản lượng thành doanh số tiền VND khi đối chiếu dữ liệu. Hãy chỉnh sửa SKU hoặc bổ sung đơn giá tại chỗ. Nhấp "Lưu bảng giá cloud" để đồng bộ lên Supabase Cloud.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div className="config-info-bar">
+                <Info size={18} />
+                <p>
+                  <strong>Lưu ý:</strong> Bảng đơn giá sản phẩm được sử dụng để quy đổi sản lượng thành doanh số tiền VND khi đối chiếu dữ liệu. Hãy chỉnh sửa SKU hoặc bổ sung đơn giá tại chỗ. Nhấp "Lưu bảng giá cloud" để đồng bộ lên Supabase Cloud.
                 </p>
               </div>
 
               {/* Add Pricing SKU Form */}
-              <div className="bg-[var(--c-surface)] rounded-3xl p-6 border border-[var(--c-border)] shadow-sm space-y-4 hover:shadow-md transition-shadow duration-300">
-                <div className="flex items-center gap-2 border-b border-[var(--c-border)] pb-3.5 mb-2">
-                  <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[var(--c-accent)]">
+              <div className="config-card">
+                <div className="config-card-header">
+                  <div className="config-card-icon">
                     <Plus size={16} />
                   </div>
-                  <h3 className="text-xs font-bold text-[var(--c-text-1)] uppercase tracking-wider">Thêm SKU & Đơn Giá Mới</h3>
+                  <h3 className="config-card-title">Thêm SKU & Đơn Giá Mới</h3>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4 items-end">
-                  <div className="flex-1 w-full space-y-2">
-                    <span className="text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider block">Mã sản phẩm (SKU) mới</span>
+                <div className="config-form-row">
+                  <div className="config-field">
+                    <span className="config-field-label">Mã sản phẩm (SKU) mới</span>
                     <input
                       value={newSku}
                       onChange={e => setNewSku(e.target.value)}
                       placeholder="VD: HAIRCARE.PTN-DG-900ML"
-                      className="w-full text-xs px-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-bg)]/40 text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 focus:bg-[var(--c-surface)] transition-all duration-200 placeholder:text-[var(--c-text-3)]"
+                      className="config-input"
                     />
                   </div>
-                  <div className="w-full sm:w-56 space-y-2">
-                    <span className="text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider block">Giá bán tham chiếu (VND)</span>
+                  <div className="config-field" style={{ maxWidth: '240px' }}>
+                    <span className="config-field-label">Giá bán tham chiếu (VND)</span>
                     <input
                       type="number"
                       value={newPrice}
                       onChange={e => setNewPrice(e.target.value)}
                       placeholder="VD: 239000"
-                      className="w-full text-xs px-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-bg)]/40 text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 focus:bg-[var(--c-surface)] transition-all duration-200 placeholder:text-[var(--c-text-3)]"
+                      className="config-input"
                     />
                   </div>
                   <button
                     onClick={handleAddPrice}
-                    className="btn btn-primary h-[42px] px-6 rounded-xl hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-md shadow-[var(--c-accent)]/10 font-bold text-xs"
+                    className="btn btn-primary"
+                    style={{ height: '42px', padding: '0 24px', borderRadius: '10px' }}
                   >
                     <Plus size={16} />
                     <span>Thêm SKU</span>
@@ -842,9 +863,9 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
               </div>
 
               {/* Filter and Cloud Save Bar */}
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="relative w-full sm:max-w-xs">
-                  <Search size={14} className="absolute left-3.5 top-3.5 text-[var(--c-text-3)]" />
+              <div className="config-actions-bar">
+                <div className="config-search-wrapper">
+                  <Search size={14} className="config-search-icon" />
                   <input
                     value={priceSearch}
                     onChange={e => {
@@ -852,13 +873,14 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                       setPricesPage(1);
                     }}
                     placeholder="Tìm mã sản phẩm (SKU)..."
-                    className="w-full text-xs pl-10 pr-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-surface)] text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 transition-all duration-200"
+                    className="config-search-input"
                   />
                 </div>
 
                 <button
                   onClick={handleSavePricesToFirebase}
-                  className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/25 shadow-md shadow-emerald-600/10 rounded-xl px-5 py-3 flex items-center gap-2 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                  className="btn btn-primary"
+                  style={{ backgroundColor: 'var(--c-accent-2)', borderColor: 'var(--c-accent-2)' }}
                 >
                   <Save size={14} /> 
                   <span>Lưu bảng giá Cloud</span>
@@ -866,37 +888,38 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
               </div>
 
               {/* Data Table */}
-              <div className="border border-[var(--c-border)] rounded-3xl overflow-hidden bg-[var(--c-surface)] shadow-sm max-h-[480px] overflow-y-auto">
-                <table className="w-full border-collapse">
+              <div className="config-table-container">
+                <table className="config-table">
                   <thead>
-                    <tr className="bg-[var(--c-bg-2)]/60 border-b border-[var(--c-border)] text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider text-left">
-                      <th className="p-4 pl-6">SKU Sản phẩm</th>
-                      <th className="p-4">Ngành Hàng</th>
-                      <th className="p-4 text-right">Giá VND</th>
-                      <th className="p-4 text-center w-32">Thao tác</th>
+                    <tr>
+                      <th style={{ width: '40%' }}>SKU Sản phẩm</th>
+                      <th style={{ width: '25%' }}>Ngành Hàng</th>
+                      <th className="config-cell-right" style={{ width: '20%' }}>Giá VND</th>
+                      <th className="config-cell-center" style={{ width: '15%' }}>Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--c-border)] text-[var(--c-text-2)] text-xs">
+                  <tbody>
                     {paginatedPrices.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="p-8 text-center text-[var(--c-text-3)] font-medium">
+                        <td colSpan={4} className="config-cell-center" style={{ padding: '32px', color: 'var(--c-text-3)' }}>
                           Không tìm thấy SKU nào khớp với tìm kiếm!
                         </td>
                       </tr>
                     ) : (
                       paginatedPrices.map(([sku, price]) => (
-                        <tr key={sku} className="hover:bg-[var(--c-surface-2)]/40 transition-colors">
-                          <td className="p-4 pl-6 font-mono font-bold text-[var(--c-text-1)] text-xs tracking-tight">{sku}</td>
-                          <td className="p-4">
-                            <span className="px-2.5 py-1 border border-[var(--c-border)] rounded-lg bg-[var(--c-bg-2)]/40 text-[10px] font-bold tracking-wide text-[var(--c-text-2)]">
-                              {sku.split('.')[0]}
+                        <tr key={sku}>
+                          <td className="config-cell-mono">{sku}</td>
+                          <td>
+                            <span className="config-badge config-badge-neutral">
+                              {sku.split('.')[0] || 'Unsorted'}
                             </span>
                           </td>
-                          <td className="p-4 text-right font-mono font-bold text-[var(--c-text-1)] text-xs">
+                          <td className="config-cell-mono config-cell-right">
                             {editingSku === sku ? (
                               <input
                                 type="number"
-                                className="w-32 text-right px-3 py-1.5 border border-[var(--c-border)] rounded-lg bg-[var(--c-surface)] text-[var(--c-text-1)] focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 outline-none transition-all"
+                                className="config-input"
+                                style={{ width: '130px', textAlign: 'right', padding: '6px 10px' }}
                                 value={editingPriceVal}
                                 onChange={e => setEditingPriceVal(e.target.value)}
                                 autoFocus
@@ -905,14 +928,14 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                               new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
                             )}
                           </td>
-                          <td className="p-4">
-                            <div className="flex items-center justify-center gap-2">
+                          <td className="config-cell-center">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                               {editingSku === sku ? (
                                 <>
-                                  <button onClick={() => handleUpdatePriceInline(sku)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg hover:shadow-md text-[10px] font-bold cursor-pointer transition-all">
+                                  <button onClick={() => handleUpdatePriceInline(sku)} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--c-accent-2)' }}>
                                     Lưu
                                   </button>
-                                  <button onClick={() => setEditingSku(null)} className="px-2.5 py-1.5 text-[10px] text-[var(--c-text-3)] hover:text-[var(--c-text-1)] hover:underline cursor-pointer">
+                                  <button onClick={() => setEditingSku(null)} className="btn btn-ghost btn-sm">
                                     Hủy
                                   </button>
                                 </>
@@ -923,14 +946,14 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                                       setEditingSku(sku);
                                       setEditingPriceVal(String(price));
                                     }}
-                                    className="p-2 text-[var(--c-text-3)] hover:text-[var(--c-accent)] hover:bg-[var(--c-surface-2)] rounded-lg cursor-pointer transition-colors"
+                                    className="config-icon-btn"
                                     title="Chỉnh sửa đơn giá"
                                   >
                                     <Edit size={14} />
                                   </button>
                                   <button
                                     onClick={() => handleDeletePrice(sku)}
-                                    className="p-2 text-[var(--c-text-3)] hover:text-rose-600 hover:bg-rose-500/10 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"
+                                    className="config-icon-btn delete"
                                     title="Gỡ SKU"
                                   >
                                     <Trash2 size={14} />
@@ -948,16 +971,16 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
 
               {/* Pagination controls */}
               {totalPricesPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[var(--c-border)]">
-                  <div className="text-xs text-[var(--c-text-2)] font-semibold">
-                    Hiển thị <span className="font-bold text-[var(--c-text-1)]">{Math.min(filteredPrices.length, (safePricesPage - 1) * itemsPerPage + 1)}</span> - <span className="font-bold text-[var(--c-text-1)]">{Math.min(filteredPrices.length, safePricesPage * itemsPerPage)}</span> trong số <span className="font-bold text-[var(--c-text-1)]">{filteredPrices.length}</span> SKU
+                <div className="config-pagination">
+                  <div className="config-pagination-info">
+                    Hiển thị <span>{Math.min(filteredPrices.length, (safePricesPage - 1) * itemsPerPage + 1)}</span> - <span>{Math.min(filteredPrices.length, safePricesPage * itemsPerPage)}</span> trong số <span>{filteredPrices.length}</span> SKU
                   </div>
                   
-                  <div className="flex items-center gap-1.5">
+                  <div className="config-pagination-controls">
                     <button
                       onClick={() => setPricesPage(1)}
                       disabled={safePricesPage === 1}
-                      className="p-2 rounded-xl border border-[var(--c-border)] hover:bg-[var(--c-surface-2)] disabled:opacity-40 disabled:hover:bg-transparent text-[var(--c-text-2)] transition-colors select-none cursor-pointer"
+                      className="config-page-btn"
                       title="Trang đầu"
                     >
                       <ChevronsLeft size={14} />
@@ -965,42 +988,36 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                     <button
                       onClick={() => setPricesPage(p => Math.max(1, p - 1))}
                       disabled={safePricesPage === 1}
-                      className="p-2 rounded-xl border border-[var(--c-border)] hover:bg-[var(--c-surface-2)] disabled:opacity-40 disabled:hover:bg-transparent text-[var(--c-text-2)] transition-colors select-none cursor-pointer"
+                      className="config-page-btn"
                       title="Trang trước"
                     >
                       <ChevronLeft size={14} />
                     </button>
                     
                     {/* Page Numbers */}
-                    <div className="flex items-center gap-1 mx-1">
-                      {Array.from({ length: Math.min(5, totalPricesPages) }, (_, i) => {
-                        let pageNum = 1;
-                        if (totalPricesPages <= 5) {
-                          pageNum = i + 1;
-                        } else {
-                          const startPage = Math.max(1, Math.min(safePricesPage - 2, totalPricesPages - 4));
-                          pageNum = startPage + i;
-                        }
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setPricesPage(pageNum)}
-                            className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-xl border transition-all select-none cursor-pointer ${
-                              safePricesPage === pageNum
-                                ? 'bg-[var(--c-accent)] text-white border-[var(--c-accent)] shadow-sm'
-                                : 'border-[var(--c-border)] text-[var(--c-text-2)] hover:bg-[var(--c-surface-2)]'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {Array.from({ length: Math.min(5, totalPricesPages) }, (_, i) => {
+                      let pageNum = 1;
+                      if (totalPricesPages <= 5) {
+                        pageNum = i + 1;
+                      } else {
+                        const startPage = Math.max(1, Math.min(safePricesPage - 2, totalPricesPages - 4));
+                        pageNum = startPage + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setPricesPage(pageNum)}
+                          className={`config-page-btn ${safePricesPage === pageNum ? 'active' : ''}`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
                     
                     <button
                       onClick={() => setPricesPage(p => Math.min(totalPricesPages, p + 1))}
                       disabled={safePricesPage === totalPricesPages}
-                      className="p-2 rounded-xl border border-[var(--c-border)] hover:bg-[var(--c-surface-2)] disabled:opacity-40 disabled:hover:bg-transparent text-[var(--c-text-2)] transition-colors select-none cursor-pointer"
+                      className="config-page-btn"
                       title="Trang sau"
                     >
                       <ChevronRight size={14} />
@@ -1008,7 +1025,7 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                     <button
                       onClick={() => setPricesPage(totalPricesPages)}
                       disabled={safePricesPage === totalPricesPages}
-                      className="p-2 rounded-xl border border-[var(--c-border)] hover:bg-[var(--c-surface-2)] disabled:opacity-40 disabled:hover:bg-transparent text-[var(--c-text-2)] transition-colors select-none cursor-pointer"
+                      className="config-page-btn"
                       title="Trang cuối"
                     >
                       <ChevronsRight size={14} />
@@ -1017,7 +1034,7 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                 </div>
               )}
 
-              <div className="text-right text-[10px] text-[var(--c-text-3)] font-mono font-semibold">
+              <div style={{ textAlign: 'right', fontSize: '10px', color: 'var(--c-text-3)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                 Tổng cộng {filteredPrices.length} mã SKU sản phẩm.
               </div>
             </div>
@@ -1025,64 +1042,67 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
 
           {/* TAB 2: STORE MAPS & SUPERVISORS ASSIGNMENTS */}
           {activeTab === 'sups' && (
-            <div className="space-y-6">
-              <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/35 text-[12.5px] text-blue-800 dark:text-blue-300 p-4 rounded-2xl flex gap-3 items-start shadow-sm">
-                <Info size={18} className="text-[var(--c-accent)] shrink-0 mt-0.5" />
-                <p className="leading-relaxed font-medium">
-                  <strong className="font-semibold text-blue-900 dark:text-blue-200">Lợi ích:</strong> Bản đồ Supervisor và Vùng miền cho phép hệ thống tự động bóc tách doanh số làm việc của các PG gửi về để gom nhóm báo cáo chuẩn xác theo từng Giám sát thị trường. Nhấp "Lưu ánh xạ SUP cloud" để ghi nhớ.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div className="config-info-bar">
+                <Info size={18} />
+                <p>
+                  <strong>Lợi ích:</strong> Bản đồ Supervisor và Vùng miền cho phép hệ thống tự động bóc tách doanh số làm việc của các PG gửi về để gom nhóm báo cáo chuẩn xác theo từng Giám sát thị trường. Nhấp "Lưu ánh xạ SUP cloud" để ghi nhớ.
                 </p>
               </div>
 
               {/* Add Store Mapping Form */}
-              <div className="bg-[var(--c-surface)] rounded-3xl p-6 border border-[var(--c-border)] shadow-sm space-y-4 hover:shadow-md transition-shadow duration-300">
-                <div className="flex items-center gap-2 border-b border-[var(--c-border)] pb-3.5 mb-2">
-                  <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[var(--c-accent)]">
+              <div className="config-card">
+                <div className="config-card-header">
+                  <div className="config-card-icon">
                     <Plus size={16} />
                   </div>
-                  <h3 className="text-xs font-bold text-[var(--c-text-1)] uppercase tracking-wider">Phân Cửa Hàng Cho Giám Sát (SUP)</h3>
+                  <h3 className="config-card-title">Phân Cửa Hàng Cho Giám Sát (SUP)</h3>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end animate-fade-in">
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider block">Mã CH mới</span>
+                <div className="config-form-grid-5">
+                  <div className="config-field">
+                    <span className="config-field-label">Mã CH mới</span>
                     <input
                       value={newStoreCode}
                       onChange={e => setNewStoreCode(e.target.value)}
                       placeholder="e.g. BIGC0051"
-                      className="w-full text-xs px-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-bg)]/40 text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 focus:bg-[var(--c-surface)] transition-all"
+                      className="config-input"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider block">Tên CH (Rút gọn)</span>
+                  <div className="config-field">
+                    <span className="config-field-label">Tên CH (Rút gọn)</span>
                     <input
                       value={newStoreName}
                       onChange={e => setNewStoreName(e.target.value)}
                       placeholder="e.g. GO Nha Trang"
-                      className="w-full text-xs px-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-bg)]/40 text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 focus:bg-[var(--c-surface)] transition-all"
+                      className="config-input"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider block">Supervisor</span>
+                  <div className="config-field">
+                    <span className="config-field-label">Supervisor</span>
                     <select
                       value={newStoreSup}
                       onChange={e => setNewStoreSup(e.target.value)}
-                      className="w-full text-xs px-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-bg)]/40 text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 focus:bg-[var(--c-surface)] transition-all cursor-pointer font-bold"
+                      className="config-input"
+                      style={{ fontWeight: 'bold' }}
                     >
                       {supsList.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider block">Phân Khu Vực</span>
+                  <div className="config-field">
+                    <span className="config-field-label">Phân Khu Vực</span>
                     <select
                       value={newStoreRegion}
                       onChange={e => setNewStoreRegion(e.target.value)}
-                      className="w-full text-xs px-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-bg)]/40 text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 focus:bg-[var(--c-surface)] transition-all cursor-pointer font-bold"
+                      className="config-input"
+                      style={{ fontWeight: 'bold' }}
                     >
                       {regionsList.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                   <button
                     onClick={handleAddStoreMap}
-                    className="btn btn-primary h-[42px] px-6 rounded-xl hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer shadow-md shadow-[var(--c-accent)]/10 font-bold text-xs"
+                    className="btn btn-primary"
+                    style={{ height: '42px', padding: '0 24px', borderRadius: '10px' }}
                   >
                     <Plus size={16} />
                     <span>Thêm Store</span>
@@ -1091,20 +1111,21 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
               </div>
 
               {/* Action Bar */}
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="relative w-full sm:max-w-xs">
-                  <Search size={14} className="absolute left-3.5 top-3.5 text-[var(--c-text-3)]" />
+              <div className="config-actions-bar">
+                <div className="config-search-wrapper">
+                  <Search size={14} className="config-search-icon" />
                   <input
                     value={storeSearch}
                     onChange={e => setStoreSearch(e.target.value)}
                     placeholder="Tìm mã, tên cửa hàng, SUP..."
-                    className="w-full text-xs pl-10 pr-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-surface)] text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 transition-all duration-200"
+                    className="config-search-input"
                   />
                 </div>
 
                 <button
                   onClick={handleSaveStoreMapToFirebase}
-                  className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/25 shadow-md shadow-emerald-600/10 rounded-xl px-5 py-3 flex items-center gap-2 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                  className="btn btn-primary"
+                  style={{ backgroundColor: 'var(--c-accent-2)', borderColor: 'var(--c-accent-2)' }}
                 >
                   <Save size={14} /> 
                   <span>Lưu ánh xạ SUP Cloud</span>
@@ -1112,45 +1133,47 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
               </div>
 
               {/* Data Table */}
-              <div className="border border-[var(--c-border)] rounded-3xl overflow-hidden bg-[var(--c-surface)] shadow-sm max-h-[440px] overflow-y-auto">
-                <table className="w-full border-collapse">
+              <div className="config-table-container">
+                <table className="config-table">
                   <thead>
-                    <tr className="bg-[var(--c-bg-2)]/60 border-b border-[var(--c-border)] text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider text-left">
-                      <th className="p-4 pl-6">Mã Cửa Hàng</th>
-                      <th className="p-4">Tên Cửa Hàng</th>
-                      <th className="p-4">Supervisor (SUP)</th>
-                      <th className="p-4">Vùng Miền</th>
-                      <th className="p-4 text-center w-32">Thao tác</th>
+                    <tr>
+                      <th style={{ width: '20%' }}>Mã Cửa Hàng</th>
+                      <th style={{ width: '35%' }}>Tên Cửa Hàng</th>
+                      <th style={{ width: '20%' }}>Supervisor (SUP)</th>
+                      <th style={{ width: '13%' }}>Vùng Miền</th>
+                      <th className="config-cell-center" style={{ width: '12%' }}>Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--c-border)] text-[var(--c-text-2)] text-xs">
+                  <tbody>
                     {filteredStores.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-[var(--c-text-3)] font-medium">
+                        <td colSpan={5} className="config-cell-center" style={{ padding: '32px', color: 'var(--c-text-3)' }}>
                           Không tìm thấy cấu hình cửa hàng nào!
                         </td>
                       </tr>
                     ) : (
                       filteredStores.map(item => (
-                        <tr key={item.storeCode} className="hover:bg-[var(--c-surface-2)]/40 transition-colors">
-                          <td className="p-4 pl-6 font-mono font-bold text-[var(--c-text-1)] text-xs">{item.storeCode}</td>
-                          <td className="p-4 text-[var(--c-text-1)] font-semibold">
+                        <tr key={item.storeCode}>
+                          <td className="config-cell-mono">{item.storeCode}</td>
+                          <td className="config-cell-bold">
                             {editingStoreCode === item.storeCode ? (
                               <input
                                 value={editNameField}
                                 onChange={e => setEditNameField(e.target.value)}
-                                className="border border-[var(--c-border)] px-3 py-1.5 text-xs rounded-lg bg-[var(--c-surface)] text-[var(--c-text-1)] w-full outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 transition-all"
+                                className="config-input"
+                                style={{ padding: '6px 10px' }}
                               />
                             ) : (
                               item.storeName
                             )}
                           </td>
-                          <td className="p-4 font-bold text-[var(--c-text-1)]">
+                          <td className="config-cell-bold">
                             {editingStoreCode === item.storeCode ? (
                               <select
                                 value={editSupField}
                                 onChange={e => setEditSupField(e.target.value)}
-                                className="border border-[var(--c-border)] px-2.5 py-1.5 text-xs rounded-lg bg-[var(--c-surface)] text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] font-bold cursor-pointer"
+                                className="config-input"
+                                style={{ padding: '6px 10px', fontWeight: 'bold' }}
                               >
                                 {supsList.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
@@ -1158,32 +1181,33 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                               item.sup
                             )}
                           </td>
-                          <td className="p-4">
+                          <td>
                             {editingStoreCode === item.storeCode ? (
                               <select
                                 value={editRegionField}
                                 onChange={e => setEditRegionField(e.target.value)}
-                                className="border border-[var(--c-border)] px-2.5 py-1.5 text-xs rounded-lg bg-[var(--c-surface)] text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] font-bold cursor-pointer"
+                                className="config-input"
+                                style={{ padding: '6px 10px', fontWeight: 'bold' }}
                               >
                                 {regionsList.map(r => <option key={r} value={r}>{r}</option>)}
                               </select>
                             ) : (
-                              <span className={`px-2.5 py-1 border rounded-lg text-[10px] font-bold font-mono tracking-wide ${
-                                item.region === 'NORTH' ? 'bg-blue-500/10 text-blue-600 border-blue-500/25 dark:text-blue-400 dark:border-blue-500/30' :
-                                item.region === 'HCM' ? 'bg-purple-500/10 text-purple-600 border-purple-500/25 dark:text-purple-400 dark:border-purple-500/30' :
-                                item.region === 'HN' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/30' :
-                                'bg-amber-500/10 text-amber-600 border-amber-500/25 dark:text-amber-400 dark:border-amber-500/30'
+                              <span className={`config-badge ${
+                                item.region === 'NORTH' ? 'config-badge-blue' :
+                                item.region === 'HCM' ? 'config-badge-purple' :
+                                item.region === 'HN' ? 'config-badge-green' :
+                                'config-badge-orange'
                               }`}>{item.region}</span>
                             )}
                           </td>
-                          <td className="p-4">
-                            <div className="flex items-center justify-center gap-2">
+                          <td className="config-cell-center">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                               {editingStoreCode === item.storeCode ? (
                                 <>
-                                  <button onClick={() => handleUpdateStoreInline(item.storeCode)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer shadow-sm">
+                                  <button onClick={() => handleUpdateStoreInline(item.storeCode)} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--c-accent-2)' }}>
                                     Lưu
                                   </button>
-                                  <button onClick={() => setEditingStoreCode(null)} className="px-2.5 py-1.5 text-[10px] text-[var(--c-text-3)] hover:text-[var(--c-text-1)] hover:underline cursor-pointer">
+                                  <button onClick={() => setEditingStoreCode(null)} className="btn btn-ghost btn-sm">
                                     Hủy
                                   </button>
                                 </>
@@ -1196,14 +1220,14 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                                       setEditSupField(item.sup);
                                       setEditRegionField(item.region);
                                     }}
-                                    className="p-2 text-[var(--c-text-3)] hover:text-[var(--c-accent)] hover:bg-[var(--c-surface-2)] rounded-lg cursor-pointer transition-colors"
+                                    className="config-icon-btn"
                                     title="Chỉnh sửa thông tin"
                                   >
                                     <Edit size={14} />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteStoreMap(item.storeCode)}
-                                    className="p-2 text-[var(--c-text-3)] hover:text-rose-600 hover:bg-rose-500/10 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"
+                                    className="config-icon-btn delete"
                                     title="Xóa cửa hàng"
                                   >
                                     <Trash2 size={14} />
@@ -1218,7 +1242,7 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                   </tbody>
                 </table>
               </div>
-              <div className="text-right text-[10px] text-[var(--c-text-3)] font-mono font-semibold">
+              <div style={{ textAlign: 'right', fontSize: '10px', color: 'var(--c-text-3)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                 Tổng cộng {filteredStores.length} cửa hàng.
               </div>
             </div>
@@ -1226,29 +1250,30 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
 
           {/* TAB 3: TARGET RETAIL STORES */}
           {activeTab === 'targets' && (
-            <div className="space-y-6">
-              <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/35 text-[12.5px] text-blue-800 dark:text-blue-300 p-4 rounded-2xl flex gap-3 items-start shadow-sm">
-                <Info size={18} className="text-[var(--c-accent)] shrink-0 mt-0.5" />
-                <p className="leading-relaxed font-medium">
-                  <strong className="font-semibold text-blue-900 dark:text-blue-200">Chỉ tiêu Target tùy biến:</strong> Toàn bộ store trong chu kỳ tính toán sẽ được tự động đồng bộ. Bạn có thể thiết lập mức doanh số Target riêng cho bất kỳ Store nào để ghi đè số cũ trong file Excel, thích hợp để điều chỉnh khi chạy sự kiện giữa tháng.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div className="config-info-bar">
+                <Info size={18} />
+                <p>
+                  <strong>Chỉ tiêu Target tùy biến:</strong> Toàn bộ store trong chu kỳ tính toán sẽ được tự động đồng bộ. Bạn có thể thiết lập mức doanh số Target riêng cho bất kỳ Store nào để ghi đè số cũ trong file Excel, thích hợp để điều chỉnh khi chạy sự kiện giữa tháng.
                 </p>
               </div>
 
               {/* Action and Search bar */}
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="relative w-full sm:max-w-xs">
-                  <Search size={14} className="absolute left-3.5 top-3.5 text-[var(--c-text-3)]" />
+              <div className="config-actions-bar">
+                <div className="config-search-wrapper">
+                  <Search size={14} className="config-search-icon" />
                   <input
                     value={targetSearch}
                     onChange={e => setTargetSearch(e.target.value)}
                     placeholder="Tìm tên, mã store hoặc dự án..."
-                    className="w-full text-xs pl-10 pr-4 py-3 border border-[var(--c-border)] rounded-xl bg-[var(--c-surface)] text-[var(--c-text-1)] outline-none focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 transition-all duration-200"
+                    className="config-search-input"
                   />
                 </div>
 
                 <button
                   onClick={handleSaveTargetsToFirebase}
-                  className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/25 shadow-md shadow-emerald-600/10 rounded-xl px-5 py-3 flex items-center gap-2 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                  className="btn btn-primary"
+                  style={{ backgroundColor: 'var(--c-accent-2)', borderColor: 'var(--c-accent-2)' }}
                 >
                   <Save size={14} /> 
                   <span>Áp dụng Target thực tế</span>
@@ -1256,22 +1281,22 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
               </div>
 
               {/* Table */}
-              <div className="border border-[var(--c-border)] rounded-3xl overflow-hidden bg-[var(--c-surface)] shadow-sm max-h-[440px] overflow-y-auto">
-                <table className="w-full border-collapse">
+              <div className="config-table-container">
+                <table className="config-table">
                   <thead>
-                    <tr className="bg-[var(--c-bg-2)]/60 border-b border-[var(--c-border)] text-[10px] font-bold text-[var(--c-text-3)] uppercase tracking-wider text-left">
-                      <th className="p-4 pl-6">Dự Án</th>
-                      <th className="p-4">Mã CH</th>
-                      <th className="p-4">Tên Cửa Hàng</th>
-                      <th className="p-4 text-right">Target Gốc Excel</th>
-                      <th className="p-4 text-right">Target Áp Dụng Thực Tế</th>
-                      <th className="p-4 text-center w-32">Thao tác</th>
+                    <tr>
+                      <th style={{ width: '12%' }}>Dự Án</th>
+                      <th style={{ width: '15%' }}>Mã CH</th>
+                      <th style={{ width: '30%' }}>Tên Cửa Hàng</th>
+                      <th className="config-cell-right" style={{ width: '18%' }}>Target Gốc Excel</th>
+                      <th className="config-cell-right" style={{ width: '25%' }}>Target Áp Dụng Thực Tế</th>
+                      <th className="config-cell-center" style={{ width: '10%' }}>Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--c-border)] text-[var(--c-text-2)] text-xs">
+                  <tbody>
                     {activeStores.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-[var(--c-text-3)] font-medium">
+                        <td colSpan={6} className="config-cell-center" style={{ padding: '32px', color: 'var(--c-text-3)' }}>
                           Không tìm thấy thông tin điểm bán nào hoạt động trong chu kỳ này!
                         </td>
                       </tr>
@@ -1282,46 +1307,47 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                         const currentTarget = isOverridden ? customTargetsList[key] : store.baseTarget;
 
                         return (
-                          <tr key={key} className="hover:bg-[var(--c-surface-2)]/40 transition-colors">
-                            <td className="p-4 pl-6">
-                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border tracking-wide ${
-                                store.project === 'CRV' 
-                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/25 dark:text-blue-400 dark:border-blue-500/30' 
-                                  : 'bg-amber-500/10 text-amber-600 border border-amber-500/25 dark:text-amber-400 dark:border-amber-500/30'
+                          <tr key={key}>
+                            <td>
+                              <span className={`config-badge ${
+                                store.project === 'CRV' ? 'config-badge-blue' : 'config-badge-orange'
                               }`}>{store.project}</span>
                             </td>
-                            <td className="p-4 font-mono font-bold text-[var(--c-text-1)] text-xs">{store.code || '---'}</td>
-                            <td className="p-4 font-semibold text-[var(--c-text-1)]">{store.name}</td>
-                            <td className="p-4 text-right font-mono text-[var(--c-text-3)] text-xs font-semibold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(store.baseTarget)}</td>
-                            <td className="p-4 text-right font-mono text-xs">
+                            <td className="config-cell-mono">{store.code || '---'}</td>
+                            <td className="config-cell-bold">{store.name}</td>
+                            <td className="config-cell-mono config-cell-right" style={{ color: 'var(--c-text-3)' }}>
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(store.baseTarget)}
+                            </td>
+                            <td className="config-cell-mono config-cell-right">
                               {editingTargetCode === key ? (
                                 <input
                                   type="number"
                                   placeholder="VND..."
-                                  className="w-40 text-right px-3 py-1.5 border border-[var(--c-border)] rounded-lg bg-[var(--c-surface)] text-[var(--c-text-1)] focus:border-[var(--c-accent)] focus:ring-4 focus:ring-[var(--c-accent)]/5 outline-none transition-all"
+                                  className="config-input"
+                                  style={{ width: '150px', textAlign: 'right', padding: '6px 10px' }}
                                   value={newTargetVal}
                                   onChange={e => setNewTargetVal(e.target.value)}
                                   autoFocus
                                 />
                               ) : (
-                                <div className="flex flex-col items-end gap-1.5">
-                                  <span className="font-bold text-[var(--c-text-1)]">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(currentTarget)}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                  <span className="config-cell-bold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(currentTarget)}</span>
                                   {isOverridden && (
-                                    <span className="text-[9px] px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg font-bold flex items-center gap-1 shadow-sm">
-                                      <Check size={10} className="text-emerald-500" /> Đã chỉnh sửa Cloud
+                                    <span className="config-badge config-badge-green" style={{ fontSize: '9px', padding: '1px 6px' }}>
+                                      <Check size={10} /> Đã chỉnh sửa Cloud
                                     </span>
                                   )}
                                 </div>
                               )}
                             </td>
-                            <td className="p-4">
-                              <div className="flex items-center justify-center gap-2">
+                            <td className="config-cell-center">
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                 {editingTargetCode === key ? (
                                   <>
-                                    <button onClick={() => handleUpdateTarget(store.code, store.name)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer shadow-sm">
+                                    <button onClick={() => handleUpdateTarget(store.code, store.name)} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--c-accent-2)' }}>
                                       Lưu
                                     </button>
-                                    <button onClick={() => setEditingTargetCode(null)} className="px-2.5 py-1.5 text-[10px] text-[var(--c-text-3)] hover:text-[var(--c-text-1)] hover:underline cursor-pointer">
+                                    <button onClick={() => setEditingTargetCode(null)} className="btn btn-ghost btn-sm">
                                       Hủy
                                     </button>
                                   </>
@@ -1332,14 +1358,16 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                                         setEditingTargetCode(key);
                                         setNewTargetVal(String(currentTarget));
                                       }}
-                                      className="px-3.5 py-1.5 border border-[var(--c-border)] hover:bg-[var(--c-surface-2)] text-[var(--c-accent)] rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                                      className="btn btn-ghost btn-sm"
+                                      style={{ fontWeight: 'bold' }}
                                     >
                                       Sửa Target
                                     </button>
                                     {isOverridden && (
                                       <button
                                         onClick={() => handleClearCustomTarget(key)}
-                                        className="text-[10px] font-bold text-rose-500 hover:text-rose-700 hover:underline cursor-pointer transition-colors"
+                                        className="btn btn-ghost btn-sm"
+                                        style={{ color: 'var(--c-bad)', fontWeight: 'bold' }}
                                       >
                                         Hủy gán
                                       </button>
@@ -1355,7 +1383,7 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                   </tbody>
                 </table>
               </div>
-              <div className="text-right text-[10px] text-[var(--c-text-3)] font-mono">
+              <div style={{ textAlign: 'right', fontSize: '10px', color: 'var(--c-text-3)', fontFamily: 'var(--font-mono)' }}>
                 Tổng cộng {activeStores.length} điểm bán có target.
               </div>
             </div>
@@ -1363,28 +1391,28 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
 
           {/* TAB 4: IMPORT & EXPORT EXCEL CENTRAL CONTROL - BENTO GRID */}
           {activeTab === 'excel' && (
-            <div className="space-y-6">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
               {/* Bento Grid layout for importing and exporting */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="config-bento-grid">
                 
                 {/* Left block: EXCEL IMPORT ZONE */}
-                <div className="bg-[var(--c-surface)] border border-[var(--c-border)] rounded-3xl p-6 flex flex-col justify-between space-y-6 shadow-sm hover:shadow-md transition-all duration-300 min-h-[380px]">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-[var(--c-text-1)] font-bold text-sm">
-                      <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[var(--c-accent)] shadow-sm">
+                <div className="config-card" style={{ minHeight: '380px', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="config-card-header">
+                      <div className="config-card-icon">
                         <Upload size={18} />
                       </div>
-                      <h3 className="text-sm font-bold text-[var(--c-text-1)] uppercase tracking-wider">Tải lên Cấu hình Excel</h3>
+                      <h3 className="config-card-title">Tải lên Cấu hình Excel</h3>
                     </div>
-                    <p className="text-xs text-[var(--c-text-2)] leading-relaxed font-semibold">
+                    <p style={{ fontSize: '12px', color: 'var(--c-text-2)', fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
                       Lựa chọn hoặc kéo thả tệp Excel sao lưu cấu hình có chứa các trang tính khớp với mẫu gộp của hệ thống:
                     </p>
                     
-                    <ul className="text-xs text-[var(--c-text-3)] space-y-2 pl-4 list-disc font-semibold">
-                      <li><b className="text-[var(--c-text-2)] font-bold">Bang_Gia_SKU</b>: Cập nhật giá bán sỉ/lẻ sản phẩm.</li>
-                      <li><b className="text-[var(--c-text-2)] font-bold">Danh_Sach_SUP_Store</b>: Đồng bộ sơ đồ nhân sự Giám sát.</li>
-                      <li><b className="text-[var(--c-text-2)] font-bold">Cau_Hinh_Targets</b>: Ghi đè chỉ tiêu doanh thu thực tế.</li>
+                    <ul style={{ fontSize: '12px', color: 'var(--c-text-3)', paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontWeight: 600 }}>
+                      <li><strong style={{ color: 'var(--c-text-2)' }}>Bang_Gia_SKU</strong>: Cập nhật giá bán sỉ/lẻ sản phẩm.</li>
+                      <li><strong style={{ color: 'var(--c-text-2)' }}>Danh_Sach_SUP_Store</strong>: Đồng bộ sơ đồ nhân sự Giám sát.</li>
+                      <li><strong style={{ color: 'var(--c-text-2)' }}>Cau_Hinh_Targets</strong>: Ghi đè chỉ tiêu doanh thu thực tế.</li>
                     </ul>
                   </div>
 
@@ -1394,57 +1422,74 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
                     onDragOver={handleDrag}
                     onDragLeave={handleDrag}
                     onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
-                      dragActive 
-                        ? 'border-[var(--c-accent)] bg-[var(--c-accent)]/5 scale-[1.01] shadow-inner' 
-                        : 'border-[var(--c-border-strong)] bg-[var(--c-bg)]/20 hover:bg-[var(--c-surface-2)]/40 hover:border-[var(--c-accent)]/50'
-                    }`}
+                    className={`config-upload-zone ${dragActive ? 'drag-active' : ''}`}
                   >
                     <input
                       type="file"
                       accept=".xlsx, .xls"
                       onChange={handleFileChange}
                       id="excel-import-uploader"
-                      className="hidden"
+                      style={{ display: 'none' }}
                     />
-                    <label htmlFor="excel-import-uploader" className="w-full flex flex-col items-center justify-center cursor-pointer py-4">
-                      <div className="p-4 bg-white dark:bg-[var(--c-surface)] rounded-2xl shadow-md border border-[var(--c-border)] mb-3 transition-transform duration-300 hover:scale-105">
-                        <FileSpreadsheet className="text-[var(--c-accent)]" size={26} />
+                    <label htmlFor="excel-import-uploader" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: '16px 0' }}>
+                      <div className="config-upload-icon-wrapper">
+                        <FileSpreadsheet size={26} />
                       </div>
-                      <span className="text-xs font-bold text-[var(--c-text-1)]">Kéo thả tệp tin hoặc nhấn để chọn</span>
-                      <span className="text-[10px] text-[var(--c-text-3)] mt-2 font-semibold">Hỗ trợ định dạng .xlsx, .xls tối đa 50MB</span>
+                      <span className="config-upload-text">Kéo thả tệp tin hoặc nhấn để chọn</span>
+                      <span className="config-upload-subtext">Hỗ trợ định dạng .xlsx, .xls tối đa 50MB</span>
                     </label>
                   </div>
                 </div>
 
                 {/* Right block: EXCEL EXPORT ZONE */}
-                <div className="bg-[var(--c-surface)] border border-[var(--c-border)] rounded-3xl p-6 flex flex-col justify-between space-y-6 shadow-sm hover:shadow-md transition-all duration-300 min-h-[380px]">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-[var(--c-text-1)] font-bold text-sm">
-                      <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-emerald-600 dark:text-emerald-400 shadow-sm">
+                <div className="config-card" style={{ minHeight: '380px', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="config-card-header">
+                      <div className="config-card-icon" style={{ color: 'var(--c-accent-2)', backgroundColor: 'rgba(45, 183, 87, 0.08)' }}>
                         <Download size={18} />
                       </div>
-                      <h3 className="text-sm font-bold text-[var(--c-text-1)] uppercase tracking-wider">Tải về Bản Thao Tác Hệ Thống</h3>
+                      <h3 className="config-card-title">Tải về Bản Thao Tác Hệ Thống</h3>
                     </div>
-                    <p className="text-xs text-[var(--c-text-2)] leading-relaxed font-semibold">
+                    <p style={{ fontSize: '12px', color: 'var(--c-text-2)', fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
                       Trích xuất cấu hình Bảng giá bán, Bản đồ Sup, và Target hiện tại trong bộ nhớ thành một tệp Excel nhiều trang chuẩn hóa. Tệp tin này dùng làm mẫu chính xác để sửa đổi ngoại tuyến và nhập ngược lại phía đối diện.
                     </p>
                     
-                    <div className="flex flex-wrap gap-2 pt-1 font-mono text-[9px] font-bold">
-                      <span className="bg-blue-500/10 text-blue-600 border border-blue-500/20 dark:text-blue-400 dark:border-blue-500/30 px-2.5 py-1 rounded-lg">Bang_Gia_SKU</span>
-                      <span className="bg-purple-500/10 text-purple-600 border border-purple-500/20 dark:text-purple-400 dark:border-purple-500/30 px-2.5 py-1 rounded-lg">Danh_Sach_SUP_Store</span>
-                      <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30 px-2.5 py-1 rounded-lg">Cau_Hinh_Targets</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+                      <span className="config-badge config-badge-blue">Bang_Gia_SKU</span>
+                      <span className="config-badge config-badge-purple">Danh_Sach_SUP_Store</span>
+                      <span className="config-badge config-badge-green">Cau_Hinh_Targets</span>
                     </div>
                   </div>
 
-                  <div className="pt-2 space-y-3">
+                  <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <button
                       onClick={handleExportSystemConfigs}
-                      className="btn btn-primary w-full flex justify-center py-3.5 bg-[var(--c-accent)] hover:bg-[var(--c-accent-2)] hover:shadow-lg text-white rounded-xl shadow-md font-bold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                      className="btn btn-primary"
+                      style={{ width: '100%', justifyContent: 'center', padding: '12px', gap: '8px', display: 'flex', alignItems: 'center' }}
                     >
-                      <Download size={14} className="mr-1.5" /> Xuất & Tải Excel mẫu chuẩn (.xlsx)
+                      <Download size={14} />
+                      <span>Xuất tệp cấu hình (.xlsx)</span>
                     </button>
-                    <span className="block text-center text-[9px] text-[var(--c-text-3)] font-mono font-semibold">Dữ liệu kết xuất động theo thời gian thực từ Supabase Cloud</span>
+                    <button
+                      onClick={handleDownloadBlankTemplate}
+                      className="btn btn-secondary"
+                      style={{ 
+                        width: '100%', 
+                        justifyContent: 'center', 
+                        padding: '12px', 
+                        gap: '8px', 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        backgroundColor: 'var(--c-bg)',
+                        border: '1px solid var(--c-accent)',
+                        borderColor: 'var(--c-accent)',
+                        color: 'var(--c-accent)'
+                      }}
+                    >
+                      <FileSpreadsheet size={14} />
+                      <span>Tải Excel mẫu chuẩn (.xlsx)</span>
+                    </button>
+                    <span style={{ display: 'block', textAlign: 'center', fontSize: '9px', color: 'var(--c-text-3)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>Dữ liệu kết xuất động theo thời gian thực từ Supabase Cloud</span>
                   </div>
                 </div>
 
@@ -1452,53 +1497,55 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
 
               {/* Parsed summary results panel if loaded successfully */}
               {importResults && (
-                <div className="bg-[var(--c-surface)] border border-emerald-500/30 rounded-3xl p-6 space-y-4 animate-fade-in shadow-md hover:shadow-lg transition-all duration-300">
-                  <div className="flex items-start justify-between border-b border-[var(--c-border)] pb-3">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="text-emerald-500 animate-pulse" size={18} />
-                      <h4 className="text-sm font-bold text-[var(--c-text-1)] uppercase tracking-wider">Xem Phác Thảo Bản Phân Tích Excel</h4>
+                <div className="config-card" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--c-border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CheckCircle className="good animate-pulse" size={18} />
+                      <h4 className="config-card-title" style={{ fontSize: '13px' }}>Xem Phác Thảo Bản Phân Tích Excel</h4>
                     </div>
-                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 px-3 py-1 rounded-full uppercase border border-emerald-200/50 dark:border-emerald-900/30 shadow-sm">Đã sẵn sàng đồng bộ</span>
+                    <span className="config-badge config-badge-green" style={{ padding: '4px 12px' }}>Đã sẵn sàng đồng bộ</span>
                   </div>
 
-                  <p className="text-xs text-[var(--c-text-2)] font-semibold leading-relaxed">
+                  <p style={{ fontSize: '12.5px', color: 'var(--c-text-2)', fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
                      Hệ thống đã nhận diện dữ liệu sửa đổi trong tệp tin. Vui lòng xác định số lượng bản ghi dưới đây trước khi đồng bộ hóa vĩnh viễn:
                   </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-[var(--c-bg-2)]/30 border border-[var(--c-border)] p-4.5 rounded-2xl text-center shadow-sm">
-                      <span className="text-xs text-[var(--c-text-3)] font-bold">SKU Đơn Giá</span>
-                      <span className="block text-3xl font-black text-[var(--c-text-1)] mt-1 font-mono">{importResults.skuCount}</span>
+                  <div className="config-preview-grid">
+                    <div className="config-preview-card">
+                      <span className="config-preview-card-label">SKU Đơn Giá</span>
+                      <span className="config-preview-card-value">{importResults.skuCount}</span>
                     </div>
-                    <div className="bg-[var(--c-bg-2)]/30 border border-[var(--c-border)] p-4.5 rounded-2xl text-center shadow-sm">
-                      <span className="text-xs text-[var(--c-text-3)] font-bold">Cửa hàng - SUP</span>
-                      <span className="block text-3xl font-black text-[var(--c-text-1)] mt-1 font-mono">{importResults.storeCount}</span>
+                    <div className="config-preview-card">
+                      <span className="config-preview-card-label">Cửa hàng - SUP</span>
+                      <span className="config-preview-card-value">{importResults.storeCount}</span>
                     </div>
-                    <div className="bg-[var(--c-bg-2)]/30 border border-[var(--c-border)] p-4.5 rounded-2xl text-center shadow-sm">
-                      <span className="text-xs text-[var(--c-text-3)] font-bold">Ghi đè Chỉ tiêu Target</span>
-                      <span className="block text-3xl font-black text-[var(--c-text-1)] mt-1 font-mono">{importResults.targetCount}</span>
+                    <div className="config-preview-card">
+                      <span className="config-preview-card-label">Ghi đè Chỉ tiêu Target</span>
+                      <span className="config-preview-card-value">{importResults.targetCount}</span>
                     </div>
                   </div>
 
-                  <div className="bg-[var(--c-surface-2)]/50 p-4.5 rounded-2xl text-xs space-y-2 border border-[var(--c-border)] text-[var(--c-text-2)] font-medium">
+                  <div style={{ backgroundColor: 'var(--c-surface-2)', padding: '16px', borderRadius: '12px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid var(--c-border)', color: 'var(--c-text-2)', fontWeight: 500 }}>
                     {importResults.details.map((item, idx) => (
-                      <p key={idx} className="flex gap-2 items-center">
-                        <span className="status-dot w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"></span>
+                      <p key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', margin: 0 }}>
+                        <span className="status-dot w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: 'var(--c-good)', borderRadius: '50%' }}></span>
                         <span>{item}</span>
                       </p>
                     ))}
                   </div>
 
-                  <div className="flex gap-3 justify-end pt-2 border-t border-[var(--c-border)]">
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid var(--c-border)' }}>
                     <button
                       onClick={() => setImportResults(null)}
-                      className="px-5 py-2.5 border border-[var(--c-border-strong)] rounded-xl text-xs font-bold text-[var(--c-text-2)] hover:bg-[var(--c-surface-2)] cursor-pointer transition-colors"
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 16px', borderRadius: '10px' }}
                     >
                       Hủy Bỏ
                     </button>
                     <button
                       onClick={handleApplyImportedData}
-                      className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/10 rounded-xl px-5 py-2.5 flex items-center gap-2 cursor-pointer font-bold transition-all duration-200 hover:-translate-y-0.5"
+                      className="btn btn-primary"
+                      style={{ backgroundColor: 'var(--c-accent-2)', borderColor: 'var(--c-accent-2)', padding: '8px 16px', borderRadius: '10px' }}
                     >
                       <Save size={14} /> 
                       <span>Ghi Đè Lên Supabase & Áp Dụng</span>
@@ -1508,21 +1555,21 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
               )}
 
               {/* Informative tutorial notes - Cohesive styling */}
-              <div className="bg-amber-50/50 border border-amber-200/50 text-amber-900 dark:bg-amber-950/10 dark:border-amber-900/35 dark:text-amber-300 rounded-3xl p-6 text-xs space-y-4 shadow-sm">
-                <h4 className="font-bold flex items-center gap-2 text-amber-950 dark:text-amber-400 text-[13px] uppercase tracking-wide">
-                  <AlertCircle size={18} className="text-amber-600" /> 
-                  HƯỚNG HẪN QUẢN TRỊ DỮ LIỆU CỐ ĐỊNH PHIÊN LÀM VIỆC
+              <div className="config-alert-card">
+                <h4 className="config-alert-card-title">
+                  <AlertCircle size={18} /> 
+                  HƯỚNG DẪN QUẢN TRỊ DỮ LIỆU CỐ ĐỊNH PHIÊN LÀM VIỆC
                 </h4>
-                <p className="leading-relaxed font-semibold">
-                  Mọi tùy chỉnh hoặc tệp Excel nhập vào bảng điều khiển được đồng bộ trực tuyến vào <strong className="text-amber-950 dark:text-amber-200">cơ sở dữ liệu Supabase Cloud</strong> liên kết với tài khoản làm việc của bạn.
+                <p className="config-alert-card-desc">
+                  Mọi tùy chỉnh hoặc tệp Excel nhập vào bảng điều khiển được đồng bộ trực tuyến vào <strong>cơ sở dữ liệu Supabase Cloud</strong> liên kết với tài khoản làm việc của bạn.
                 </p>
-                <div className="border-t border-amber-200/50 dark:border-amber-900/20 pt-3.5 space-y-2 font-medium">
-                  <p className="font-bold text-amber-950 dark:text-amber-300 text-xs">
+                <div style={{ borderTop: '1px solid rgba(245, 158, 11, 0.15)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <p style={{ margin: 0, fontWeight: 'bold', color: '#b45309', fontSize: '12px' }}>
                     Lợi ích cốt lõi của việc này:
                   </p>
-                  <ul className="list-disc pl-5 space-y-2">
-                    <li><strong className="text-amber-950 dark:text-amber-300">Cố định dữ liệu:</strong> Cấu hình (đơn giá sản phẩm, giám sát vùng, target) không bị biến mất khi dọn dẹp bộ nhớ đệm (Clear cache) hay khi đóng trình duyệt.</li>
-                    <li><strong className="text-amber-950 dark:text-amber-300">Độc lập tải dữ liệu:</strong> Khi bạn tải lên tệp tin Excel số PG mới hàng tuần từ cổng quản trị chính, các quy tắc đơn giá và Ánh xạ SUP trên Cloud vẫn tự động áp dụng chính xác cho file mới mà không cần thiết lập lại từ đầu!</li>
+                  <ul className="config-alert-card-list">
+                    <li><strong>Cố định dữ liệu:</strong> Cấu hình (đơn giá sản phẩm, giám sát vùng, target) không bị biến mất khi dọn dẹp bộ nhớ đệm (Clear cache) hay khi đóng trình duyệt.</li>
+                    <li><strong>Độc lập tải dữ liệu:</strong> Khi bạn tải lên tệp tin Excel số PG mới hàng tuần từ cổng quản trị chính, các quy tắc đơn giá và Ánh xạ SUP trên Cloud vẫn tự động áp dụng chính xác cho file mới mà không cần thiết lập lại từ đầu!</li>
                   </ul>
                 </div>
               </div>

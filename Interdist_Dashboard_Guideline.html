@@ -1,0 +1,334 @@
+<html lang="vi"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interdist Analytics — Hướng Dẫn Sử Dụng</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+:root{
+  --navy:#0F1E2E;--navy2:#1C2B3A;--navy3:#26384b;
+  --teal:#2DD4BF;--teal-d:#0d9488;--amber:#F59E0B;
+  --crv:#3B82F6;--stmb:#A855F7;
+  --g50:#F8FAFC;--g100:#F1F5F9;--g200:#E2E8F0;--g400:#94A3B8;
+  --g500:#64748B;--g600:#475569;--g700:#334155;--g900:#0F172A;
+  --green:#16A34A;--blue:#2563EB;--red:#DC2626;
+  --mono:'SF Mono',ui-monospace,'Cascadia Code',Menlo,monospace;
+  --sans:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --serif:'Fraunces','Times New Roman',serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);color:var(--g700);background:var(--g50);line-height:1.6;-webkit-font-smoothing:antialiased;}
+code{font-family:var(--mono);font-size:.88em;background:var(--g100);padding:1px 6px;border-radius:5px;color:var(--navy2);}
+.sidenav{position:fixed;top:0;left:0;width:236px;height:100vh;background:var(--navy);color:#fff;padding:28px 0;display:flex;flex-direction:column;z-index:100;border-right:1px solid var(--navy3);overflow-y:auto;}
+.brand{padding:0 24px 22px;border-bottom:1px solid var(--navy3);margin-bottom:14px;}
+.brand-logo{font-family:var(--serif);font-size:21px;font-weight:700;color:#fff;line-height:1.2;}
+.brand-logo span{color:var(--teal);}
+.brand-sub{font-family:var(--mono);font-size:10px;color:var(--g400);margin-top:6px;letter-spacing:.08em;text-transform:uppercase;}
+.nav-group-label{font-family:var(--mono);font-size:10px;color:var(--g500);padding:14px 24px 7px;letter-spacing:.1em;text-transform:uppercase;}
+.nav-link{display:flex;align-items:center;gap:11px;padding:9px 24px;color:var(--g400);text-decoration:none;font-size:13.5px;font-weight:500;border-left:3px solid transparent;transition:all .15s;}
+.nav-link:hover{color:#fff;background:var(--navy2);}
+.nav-link.active{color:#fff;border-left-color:var(--teal);background:var(--navy2);}
+.nav-icon{font-size:14px;width:18px;text-align:center;}
+.nav-no{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--g500);width:22px;text-align:center;flex-shrink:0;transition:color .15s;}
+.nav-link:hover .nav-no{color:var(--teal);}
+.nav-link.active .nav-no{color:var(--teal);}
+.main{margin-left:236px;}
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 60%,var(--navy3) 100%);color:#fff;padding:48px 56px 42px;position:relative;overflow:hidden;}
+.hdr::after{content:'';position:absolute;top:-60px;right:-40px;width:280px;height:280px;background:radial-gradient(circle,rgba(45,212,191,.16),transparent 70%);border-radius:50%;}
+.hdr-tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);border:1px solid var(--teal-d);padding:5px 12px;border-radius:20px;margin-bottom:18px;}
+.hdr h1{font-family:var(--serif);font-size:38px;font-weight:700;letter-spacing:-.02em;line-height:1.1;margin-bottom:12px;}
+.hdr p{color:var(--g200);font-size:15px;max-width:640px;}
+.hdr-meta{display:flex;gap:28px;margin-top:26px;flex-wrap:wrap;}
+.hdr-meta .k{font-family:var(--mono);color:var(--g400);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}
+.hdr-meta .v{color:#fff;font-weight:600;font-size:13px;}
+.content{padding:44px 56px 80px;max-width:1000px;}
+section{margin-bottom:54px;scroll-margin-top:24px;}
+.sec-head{display:flex;align-items:center;gap:14px;margin-bottom:20px;}
+.sec-num{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;background:var(--navy2);width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.sec-head h2{font-family:var(--serif);font-size:25px;font-weight:600;color:var(--g900);letter-spacing:-.01em;}
+.lead{font-size:15px;color:var(--g600);margin-bottom:20px;}
+.grid{display:grid;gap:16px;}
+.grid-2{grid-template-columns:1fr 1fr;}
+.card{background:#fff;border:1px solid var(--g200);border-radius:14px;padding:22px 24px;transition:box-shadow .2s,transform .2s;}
+.card:hover{box-shadow:0 8px 28px -12px rgba(15,30,46,.18);transform:translateY(-2px);}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.card-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--g100);flex-shrink:0;}
+.card h3{font-size:15.5px;font-weight:700;color:var(--g900);}
+.card p{font-size:13.5px;color:var(--g600);}
+.card ul{list-style:none;margin-top:8px;}
+.card li{font-size:13.5px;color:var(--g600);padding:5px 0 5px 20px;position:relative;}
+.card li::before{content:'→';position:absolute;left:0;color:var(--teal-d);font-weight:700;}
+.navmap{background:#fff;border:1px solid var(--g200);border-radius:14px;overflow:hidden;}
+.navmap-row{display:flex;gap:14px;padding:15px 20px;border-bottom:1px solid var(--g100);align-items:flex-start;}
+.navmap-row:last-child{border-bottom:none;}
+.navmap-row:hover{background:var(--g50);}
+.navmap-ic{width:30px;height:30px;border-radius:8px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.navmap-name{font-weight:700;color:var(--g900);font-size:14px;}
+.navmap-name .badge{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:5px;margin-left:8px;text-transform:uppercase;letter-spacing:.03em;vertical-align:middle;}
+.b-dev{background:#FEF3C7;color:#92400E;}
+.b-all{background:#DCFCE7;color:#166534;}
+.navmap-desc{font-size:13px;color:var(--g600);margin-top:2px;}
+.role{display:flex;gap:14px;padding:18px 20px;border:1px solid var(--g200);border-radius:12px;background:#fff;margin-bottom:12px;}
+.role-tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:6px 11px;border-radius:7px;height:fit-content;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em;}
+.role-dev{background:#FEF3C7;color:#92400E;}
+.role-admin{background:#DBEAFE;color:#1E40AF;}
+.role-user{background:#E2E8F0;color:#475569;}
+.role-body h4{font-size:14.5px;color:var(--g900);margin-bottom:4px;}
+.role-body p{font-size:13px;color:var(--g600);}
+.role-body .email{font-family:var(--mono);font-size:11.5px;color:var(--teal-d);}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px;}
+.kpic{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:15px 16px;border-top:3px solid var(--navy2);}
+.kpic.crv{border-top-color:var(--crv);}
+.kpic.stmb{border-top-color:var(--stmb);}
+.kpic.ach{border-top-color:var(--green);}
+.kpic .lbl{font-family:var(--mono);font-size:10px;color:var(--g500);text-transform:uppercase;letter-spacing:.05em;}
+.kpic .desc{font-size:12px;color:var(--g600);margin-top:6px;}
+.periods{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.period{font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:8px;background:var(--navy);color:#fff;}
+.period span{font-family:var(--mono);font-size:9px;opacity:.7;display:block;}
+.callout{background:linear-gradient(90deg,rgba(245,158,11,.08),rgba(245,158,11,.02));border:1px solid #FCD9A0;border-left:4px solid var(--amber);border-radius:10px;padding:16px 20px;font-size:13.5px;color:var(--g700);display:flex;gap:12px;margin-top:14px;}
+.callout.teal{background:linear-gradient(90deg,rgba(45,212,191,.08),rgba(45,212,191,.02));border-color:#99F6E4;border-left-color:var(--teal-d);}
+.callout .ic{font-size:18px;flex-shrink:0;}
+.callout b{color:#92400E;}
+.callout.teal b{color:var(--teal-d);}
+.test-intro{background:var(--navy);color:#fff;border-radius:14px;padding:24px 26px;margin-bottom:24px;}
+.test-intro h3{font-family:var(--serif);font-size:19px;font-weight:600;margin-bottom:8px;color:#fff;}
+.test-intro p{color:var(--g200);font-size:13.5px;}
+.test-focus{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;}
+.focus-pill{background:rgba(45,212,191,.14);border:1px solid var(--teal-d);color:var(--teal);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:8px;display:flex;align-items:center;gap:7px;}
+.steps{counter-reset:step;margin-top:8px;background:#fff;border:1px solid var(--g200);border-radius:14px;padding:8px 22px;}
+.step{display:flex;gap:14px;padding:14px 0;border-bottom:1px dashed var(--g200);}
+.step:last-child{border-bottom:none;}
+.step-n{counter-increment:step;font-family:var(--mono);font-weight:700;color:var(--teal-d);font-size:13px;flex-shrink:0;}
+.step-n::before{content:'0' counter(step);}
+.step-t{font-size:13.5px;color:var(--g600);}
+.step-t b{color:var(--g900);}
+.progress-wrap{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:16px 20px;margin-bottom:22px;display:flex;align-items:center;gap:16px;}
+.progress-bar{flex:1;height:9px;background:var(--g200);border-radius:6px;overflow:hidden;}
+.progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--teal-d),var(--teal));border-radius:6px;transition:width .4s;}
+.progress-txt{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--navy2);white-space:nowrap;}
+.test-module{margin-bottom:22px;}
+.module-title{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.module-badge{font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;background:var(--teal-d);padding:4px 10px;border-radius:6px;}
+.module-title h3{font-size:15.5px;color:var(--g900);font-weight:700;}
+.test-item{display:flex;align-items:flex-start;gap:13px;background:#fff;border:1px solid var(--g200);border-radius:10px;padding:14px 16px;margin-bottom:9px;cursor:pointer;transition:all .15s;}
+.test-item:hover{border-color:var(--teal);}
+.test-item.checked{background:#F0FDF9;border-color:var(--teal-d);}
+.test-item.checked .test-label{color:var(--g500);text-decoration:line-through;}
+.test-box{width:21px;height:21px;border:2px solid var(--g400);border-radius:6px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:13px;color:#fff;}
+.test-item.checked .test-box{background:var(--teal-d);border-color:var(--teal-d);}
+.test-label{font-size:13.5px;color:var(--g700);}
+.test-label b{color:var(--navy2);}
+.test-expect{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--red);background:#FEF2F2;padding:2px 8px;border-radius:5px;margin-left:4px;border:1px solid #FECACA;}
+.ftr{background:var(--navy);color:var(--g400);padding:28px 56px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-left:236px;}
+.ftr b{color:#fff;}
+.mobile-nav{display:none;}
+@media (max-width:768px){
+.sidenav{display:none;}
+.main,.ftr{margin-left:0;}
+.hdr{padding:34px 20px 28px;}
+.hdr h1{font-size:27px;}
+.content{padding:28px 20px 90px;}
+.grid-2{grid-template-columns:1fr;}
+.kpi-grid{grid-template-columns:1fr 1fr;}
+.ftr{display:none;}
+.test-focus{flex-direction:column;}
+.mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:62px;background:var(--navy);border-top:2px solid var(--teal);z-index:200;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.mobile-nav::-webkit-scrollbar{display:none;}
+.mobile-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-width:62px;padding:7px 4px 5px;text-decoration:none;color:var(--g400);border-top:2px solid transparent;transition:all .15s;gap:3px;}
+.mobile-nav-tab.active,.mobile-nav-tab:hover{color:#fff;border-top-color:var(--teal);}
+.mobile-nav-icon{font-size:17px;line-height:1;}
+.mobile-nav-label{font-size:9px;font-family:var(--mono);letter-spacing:.03em;white-space:nowrap;}
+}
+</style>
+</head>
+<body>
+
+<nav class="sidenav">
+  <div class="brand">
+    <div class="brand-logo">Interdist<span>.</span><br>Analytics</div>
+    <div class="brand-sub">Hướng dẫn sử dụng</div>
+  </div>
+  <div class="nav-group-label">Bắt đầu</div>
+  <a href="#overview" class="nav-link"><span class="nav-no">01</span> Giới thiệu</a>
+  <a href="#login" class="nav-link"><span class="nav-no">02</span> Đăng nhập &amp; quyền</a>
+  <div class="nav-group-label">Sử dụng</div>
+  <a href="#navmap" class="nav-link"><span class="nav-no">03</span> Bản đồ giao diện</a>
+  <a href="#dashboard" class="nav-link"><span class="nav-no">04</span> Overall &amp; KPI</a>
+  <a href="#detail" class="nav-link"><span class="nav-no">05</span> Detail reports</a>
+  <a href="#import" class="nav-link"><span class="nav-no">06</span> Cổng dữ liệu</a>
+  <a href="#configure" class="nav-link"><span class="nav-no">07</span> Configure</a>
+  <a href="#export" class="nav-link"><span class="nav-no">08</span> Export &amp; Telegram</a>
+</nav>
+
+<div class="main">
+  <header class="hdr">
+    <span class="hdr-tag">Hướng dẫn sử dụng</span>
+    <h1>Interdist Analytics System</h1>
+    <p>Web app thu thập, xử lý và trực quan hóa dữ liệu bán hàng P&amp;G cho hai kênh CRV (GO!/Big C) và STMB (Lan Chi). Tài liệu này hướng dẫn cách dùng từng màn hình của hệ thống.</p>
+    <div class="hdr-meta">
+      <div><div class="k">Môi trường</div><div class="v">Web App (chạy trên trình duyệt)</div></div>
+      <div><div class="k">Stack</div><div class="v">React · Vite · TypeScript · Firebase</div></div>
+      <div><div class="k">Charts</div><div class="v">Recharts (tương tác)</div></div>
+      <div><div class="k">Phiên bản</div><div class="v">Bản nghiệm thu</div></div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <section id="overview">
+      <div class="sec-head"><div class="sec-num">01</div><h2>Giới thiệu</h2></div>
+      <p class="lead">App đọc trực tiếp file báo cáo Excel/CSV của nhà phân phối, chuẩn hóa và dựng dashboard số liệu cho hai kênh. Toàn bộ xử lý chạy trên trình duyệt (client-side); xác thực và cấu hình lưu trên Firebase.</p>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-h"><div class="card-ic">🎯</div><h3>Mục đích</h3></div>
+          <p>Biến file Excel raw thành dashboard doanh số &amp; target real-time, giảm thao tác thủ công, chuẩn hóa cách theo dõi hai kênh CRV / STMB.</p>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-ic">🧩</div><h3>Cấu trúc 2 kênh</h3></div>
+          <p><b>CRV BA Long Term</b> — hệ thống GO!/Big C (~40 store, 6 vùng). <b>STMB</b> — Lan Chi Mart (~10 store). Hai kênh xem riêng hoặc gộp chung.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="login">
+      <div class="sec-head"><div class="sec-num">02</div><h2>Đăng nhập &amp; phân quyền</h2></div>
+      <p class="lead">Đăng nhập bằng Email/Mật khẩu. Mỗi tài khoản có một trong ba cấp quyền, quyết định việc có thấy <b>Cổng Dữ Liệu</b> và <b>quản lý người dùng</b> hay không.</p>
+      <div class="role">
+        <span class="role-tag role-dev">dev</span>
+        <div class="role-body">
+          <h4>Developer — Admin hệ thống</h4>
+          <p>Toàn quyền: cấp/hạ quyền cho user khác, can thiệp cấu hình. Thấy đầy đủ Cổng Dữ Liệu &amp; quản lý user.</p>
+        </div>
+      </div>
+      <div class="role">
+        <span class="role-tag role-admin">admin</span>
+        <div class="role-body">
+          <h4>Quản trị viên</h4>
+          <p>Thêm/xóa tài khoản cấp <code>user</code>, chỉnh cấu hình Target. Không đổi được vai trò người ở cấp <code>admin</code>/<code>dev</code>. Có Cổng Dữ Liệu.</p>
+        </div>
+      </div>
+      <div class="role">
+        <span class="role-tag role-user">user</span>
+        <div class="role-body">
+          <h4>Người dùng tiêu chuẩn</h4>
+          <p>Chỉ xem báo cáo. KHÔNG thấy nút Cổng Dữ Liệu, không sửa cấu hình, không quản lý người dùng.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="navmap">
+      <div class="sec-head"><div class="sec-num">03</div><h2>Bản đồ giao diện (sidebar)</h2></div>
+      <p class="lead">Toàn bộ chức năng nằm ở thanh điều hướng bên trái, chia 4 nhóm: màn hình chính, kênh, công cụ và thông tin.</p>
+      <div class="navmap">
+        <div class="navmap-row"><div class="navmap-ic">▦</div><div><div class="navmap-name">Overall <span class="badge b-all">mọi quyền</span></div><div class="navmap-desc">Màn hình tổng quan — 6 thẻ KPI + biểu đồ xu hướng + bảng vùng. Là nơi đối chiếu số tổng.</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">▥</div><div><div class="navmap-name">Detail reports <span class="badge b-all">mọi quyền</span></div><div class="navmap-desc">Báo cáo chi tiết theo Ngành hàng / Vùng / Supervisor, theo tuần và cả tháng.</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">◈</div><div><div class="navmap-name">CRV BA Long Term <span class="badge b-all">mọi quyền</span></div><div class="navmap-desc">Lọc nhanh chỉ kênh CRV, mở danh sách store chi tiết.</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">⌂</div><div><div class="navmap-name">STMB <span class="badge b-all">mọi quyền</span></div><div class="navmap-desc">Lọc nhanh chỉ kênh STMB (Lan Chi).</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">↑</div><div><div class="navmap-name">Export Report <span class="badge b-all">mọi quyền</span></div><div class="navmap-desc">Xuất báo cáo điểm bán ra PDF để gửi khách hàng.</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">▤</div><div><div class="navmap-name">Export Excel <span class="badge b-all">mọi quyền</span></div><div class="navmap-desc">Xuất dữ liệu ra file .xlsx (chọn kênh + kỳ hạn).</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">◉</div><div><div class="navmap-name">Cổng Dữ Liệu <span class="badge b-dev">dev / admin</span></div><div class="navmap-desc">Nạp file báo cáo mới. Chỉ dev/admin mới thấy nút này.</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">⚙</div><div><div class="navmap-name">Configure <span class="badge b-dev">dev / admin</span></div><div class="navmap-desc">Cấu hình bảng giá, supervisor, target store.</div></div></div>
+        <div class="navmap-row"><div class="navmap-ic">ⓘ</div><div><div class="navmap-name">Thông tin dashboard <span class="badge b-all">mọi quyền</span></div><div class="navmap-desc">Mô tả tính năng &amp; phiên bản.</div></div></div>
+      </div>
+      <div class="callout teal"><span class="ic">💡</span><div>Trên đầu màn hình có <b>dropdown chọn kỳ hạn</b> (Weekly / Full / MTD / Custom / Shifts) và <b>bộ lọc Vùng</b> — áp dụng cho cả Overall lẫn Detail reports.</div></div>
+    </section>
+
+    <section id="dashboard">
+      <div class="sec-head"><div class="sec-num">04</div><h2>Màn hình Overall &amp; các thẻ KPI</h2></div>
+      <p class="lead">Sáu thẻ KPI chính. Bấm vào thẻ CRV / STMB để lọc nhanh theo kênh tương ứng.</p>
+      <div class="kpi-grid">
+        <div class="kpic"><div class="lbl">Actual SO MTD</div><div class="desc">Doanh số lũy kế (tỷ VNĐ) kèm target tổng.</div></div>
+        <div class="kpic ach"><div class="lbl">%ACH Full Month</div><div class="desc">% đạt target cả tháng. Ngưỡng on-track ≥ <b>40%</b>.</div></div>
+        <div class="kpic crv"><div class="lbl">CRV Channel</div><div class="desc">Doanh số riêng kênh CRV (GO!/Big C).</div></div>
+        <div class="kpic stmb"><div class="lbl">STMB Channel</div><div class="desc">Doanh số riêng kênh STMB (Lan Chi).</div></div>
+        <div class="kpic"><div class="lbl">Stores Active</div><div class="desc">Số store đang hoạt động / tổng số store.</div></div>
+        <div class="kpic"><div class="lbl">Daily Orders</div><div class="desc">Doanh số trung bình mỗi ngày (triệu VNĐ).</div></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-h"><div class="card-ic">📉</div><h3>Biểu đồ &amp; bảng dưới KPI</h3></div>
+        <ul>
+          <li>Trend chart Target vs Actual theo ngày (tương tác — hover xem chi tiết)</li>
+          <li>Bảng theo Vùng kèm % tiến trình cho cả 2 kênh</li>
+          <li>Đổi bộ lọc Kênh / Vùng / Kỳ hạn → số liệu &amp; chart cập nhật ngay</li>
+        </ul>
+      </div>
+      <div class="periods" style="margin-top:16px;">
+        <div class="period"><span>WEEKLY</span>Tuần</div>
+        <div class="period"><span>FULL</span>Tháng</div>
+        <div class="period"><span>MTD</span>Luỹ kế</div>
+        <div class="period"><span>CUSTOM</span>Tùy chọn</div>
+        <div class="period"><span>SHIFTS</span>Ca làm</div>
+      </div>
+    </section>
+
+    <section id="detail">
+      <div class="sec-head"><div class="sec-num">05</div><h2>Detail reports</h2></div>
+      <p class="lead">Báo cáo chi tiết, gồm các bảng đối chiếu theo nhiều chiều. Đây là nơi soi sâu khi cần kiểm tra số.</p>
+      <div class="grid grid-2">
+        <div class="card"><div class="card-h"><div class="card-ic">🏷</div><h3>Theo tuần</h3></div><ul><li>Doanh số theo Ngành hàng / tuần</li><li>Doanh số theo Supervisor / tuần</li></ul></div>
+        <div class="card"><div class="card-h"><div class="card-ic">📅</div><h3>Cả tháng</h3></div><ul><li>Ngành hàng: Target Full · Actual MTD · % Hoàn thành · Gap vs Timegone</li><li>Vùng: cùng cấu trúc cột như trên</li></ul></div>
+        <div class="card"><div class="card-h"><div class="card-ic">∑</div><h3>Lũy kế MTD</h3></div><ul><li>Ngành hàng: Target MTD · Actual MTD · % Hoàn thành MTD</li></ul></div>
+        <div class="card"><div class="card-h"><div class="card-ic">🕑</div><h3>Ca làm (Shifts)</h3></div><p>Riêng Detail reports có thêm kỳ hạn "Shifts" để xem theo ca làm việc của store.</p></div>
+      </div>
+      <div class="callout"><span class="ic">📌</span><div><b>Gap vs Timegone</b>: so sánh tiến độ thực tế với mốc thời gian đã trôi qua trong tháng — đây là chuẩn on/off track. Khi đối chiếu, để ý cột này khớp với cách tính bên file gốc.</div></div>
+    </section>
+
+    <section id="import">
+      <div class="sec-head"><div class="sec-num">06</div><h2>Cổng Dữ Liệu (nạp file)</h2></div>
+      <p class="lead">Chỉ <b>dev / admin</b> thấy được. Đây là nơi nạp file báo cáo mới vào hệ thống.</p>
+      <div class="steps">
+        <div class="step"><div class="step-n"></div><div class="step-t">Bấm <b>Cổng Dữ Liệu</b> ở sidebar .</div></div>
+        <div class="step"><div class="step-n"></div><div class="step-t"><b>Kéo thả</b> file vào vùng nhận, hoặc bấm chọn file. Hỗ trợ <code>.xlsx</code> <code>.xls</code> <code>.xlsb</code> <code>.csv</code> — nạp được <b>nhiều file cùng lúc</b>.</div></div>
+        <div class="step"><div class="step-n"></div><div class="step-t">App tự chuẩn hóa tên cửa hàng, ngành hàng, mã nhân sự và tính các chỉ số (Revenue, Target, Shifts).</div></div>
+        <div class="step"><div class="step-n"></div><div class="step-t">Sau khi nạp, quay lại Overall đối chiếu số mới có khớp file vừa import không.</div></div>
+      </div>
+      <div class="callout"><span class="ic">⚠️</span><div>App tự fallback Mã vùng nếu file thiếu, và tự tạo Profile Target cho store mới/lạ. <b>Nhưng nếu file đầu vào sai/thiếu giá hoặc thiếu target ngày</b>, số trên dashboard sẽ lệch — luôn kiểm tra chất lượng file config trước.</div></div>
+    </section>
+
+    <section id="configure">
+      <div class="sec-head"><div class="sec-num">07</div><h2>Configure (cấu hình)</h2></div>
+      <p class="lead">Quản lý dữ liệu nền của hệ thống. Bốn nhóm cấu hình, lưu vĩnh viễn trên Firebase.</p>
+      <div class="grid grid-2">
+        <div class="card"><div class="card-h"><div class="card-ic">💲</div><h3>Bảng Giá Sản Phẩm</h3></div><p>Giá tham chiếu theo SKU + ngành hàng. Cần đủ giá cho mọi SKU để không bị thiếu doanh số.</p></div>
+        <div class="card"><div class="card-h"><div class="card-ic">👤</div><h3>Phân Công Supervisor</h3></div><p>Gán Supervisor &amp; Vùng cho từng mã cửa hàng.</p></div>
+        <div class="card"><div class="card-h"><div class="card-ic">🎯</div><h3>Quản Lý Target Store</h3></div><p>Target gốc từ Excel vs target áp dụng thực tế, theo từng dự án &amp; store.</p></div>
+        <div class="card"><div class="card-h"><div class="card-ic">🔁</div><h3>Nhập &amp; Xuất Excel</h3></div><p>Tải file Excel cấu hình (.xlsx) để cập nhật hàng loạt thay vì nhập tay.</p></div>
+      </div>
+    </section>
+
+    <section id="export">
+      <div class="sec-head"><div class="sec-num">08</div><h2>Export &amp; Telegram</h2></div>
+      <div class="grid grid-2">
+        <div class="card"><div class="card-h"><div class="card-ic">📄</div><h3>Export Report (PDF) (Chưa bắt đầu)</h3></div><p>Xuất báo cáo điểm bán ra PDF sạch để gửi khách hàng P&amp;G. Có nút "Copy nội dung" copy bản text vào clipboard.</p></div>
+        <div class="card"><div class="card-h"><div class="card-ic">📗</div><h3>Export Excel</h3></div><p>Chọn kênh + kỳ hạn, xuất file .xlsx (dạng dọc) để theo dõi offline.</p></div>
+        <div class="card"><div class="card-h"><div class="card-ic">✈️</div><h3>Telegram Broadcast (Chưa bắt đầu)</h3></div><p>Soạn &amp; gửi nhanh tin nhắn thông báo cho đội Sales qua Telegram.</p></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<nav class="mobile-nav">
+  <a href="#overview" class="mobile-nav-tab"><span class="mobile-nav-icon">◆</span><span class="mobile-nav-label">Giới thiệu</span></a>
+  <a href="#navmap" class="mobile-nav-tab"><span class="mobile-nav-icon">🗺</span><span class="mobile-nav-label">Giao diện</span></a>
+  <a href="#dashboard" class="mobile-nav-tab"><span class="mobile-nav-icon">📊</span><span class="mobile-nav-label">KPI</span></a>
+  <a href="#detail" class="mobile-nav-tab"><span class="mobile-nav-icon">📈</span><span class="mobile-nav-label">Chi tiết</span></a>
+  <a href="#import" class="mobile-nav-tab"><span class="mobile-nav-icon">📥</span><span class="mobile-nav-label">Dữ liệu</span></a>
+</nav>
+
+<footer class="ftr">
+  <div>Interdist Analytics System — <b>Hướng dẫn sử dụng</b></div>
+  <div>Tài liệu nội bộ dự án</div>
+</footer>
+
+<script>
+const sections=document.querySelectorAll('section');
+const navLinks=document.querySelectorAll('.nav-link');
+const mobileLinks=document.querySelectorAll('.mobile-nav-tab');
+function onScroll(){let cur='';sections.forEach(s=>{if(window.scrollY>=s.offsetTop-120)cur=s.id;});navLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+cur));mobileLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+cur));}
+window.addEventListener('scroll',onScroll);onScroll();
+</script>
+
+
+
+</body></html>

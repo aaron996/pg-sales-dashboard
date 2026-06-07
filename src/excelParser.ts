@@ -1,5 +1,6 @@
 // Excel Parser algorithms & dates math
 import { STORE_MAPPING, PRODUCT_PRICES, STORE_SHIFT_CONFIGS } from "./configData";
+import * as XLSX from 'xlsx';
 
 export const calculateStatus = (pct: number) => {
   if (pct >= 40) return "good";
@@ -370,9 +371,6 @@ export const matchSkuInCatalog = (columnName: string) => {
 };
 
 export const processExcelData = (arrayBuffer: any, baselineTemplate: any) => {
-  if (typeof (window as any).XLSX === 'undefined') {
-    throw new Error("Thu vien SheetJS (XLSX) chua duoc tai.");
-  }
 
   let expectedYear = 2026;
   let expectedMonth = 5; // May
@@ -403,18 +401,18 @@ export const processExcelData = (arrayBuffer: any, baselineTemplate: any) => {
     try {
       let workbook;
       if (typeof item === 'string') {
-        workbook = (window as any).XLSX.read(item, { type: 'string' });
+        workbook = XLSX.read(item, { type: 'string' });
       } else if (item && typeof item === 'object' && item.data) {
         if (typeof item.data === 'string') {
-          workbook = (window as any).XLSX.read(item.data, { type: 'string' });
+          workbook = XLSX.read(item.data, { type: 'string' });
         } else {
-          workbook = (window as any).XLSX.read(item.data, { type: 'array', cellDates: true, codepage: 65001 });
+          workbook = XLSX.read(item.data, { type: 'array', cellDates: true, codepage: 65001 });
         }
       } else {
         if (typeof item === 'string') {
-          workbook = (window as any).XLSX.read(item, { type: 'string' });
+          workbook = XLSX.read(item, { type: 'string' });
         } else {
-          workbook = (window as any).XLSX.read(item, { type: 'array', cellDates: true, codepage: 65001 });
+          workbook = XLSX.read(item, { type: 'array', cellDates: true, codepage: 65001 });
         }
       }
 
@@ -436,7 +434,7 @@ export const processExcelData = (arrayBuffer: any, baselineTemplate: any) => {
       }
 
       if (worksheet) {
-        const rows = (window as any).XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        const rows = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         if (rows && rows.length > 0) {
           const firstRow = rows[0];
           
