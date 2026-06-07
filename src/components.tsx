@@ -1393,8 +1393,6 @@ const ExportExcelDialog = ({ open, onClose }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, onClose, isExporting]);
 
-  if (!open) return null;
-
   const D = (window as any).INTERDIST_DATA || {};
   const meta = D?.crv?.meta || { start_day: '', updated_to: '' };
 
@@ -1634,6 +1632,8 @@ const ExportExcelDialog = ({ open, onClose }) => {
       setIsExporting(false);
     }
   };
+
+  if (!open) return null;
 
   return (
     <div
