@@ -489,7 +489,6 @@ const App = () => {
   const [excelOpen, setExcelOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [logTick, setLogTick] = useState(0);
-  const [showPortal, setShowPortal] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [hasRealData, setHasRealData] = useState(() => {
     return typeof window !== 'undefined' && !(window as any)._isUsingBaseline;
@@ -620,9 +619,9 @@ const App = () => {
 
   const periodLabel = useMemo(() => {
     const map = {
-      weekly: 'Tuần (Weekly)',
-      fullMonth: 'Tháng (Full)',
-      mtd: 'Luỹ kế (MTD)',
+      weekly: 'Week to date',
+      fullMonth: 'Month to date',
+      mtd: 'Month to date',
       shifts: 'Ca làm (Shifts)',
       custom: 'Tùy chọn (Custom)',
     };
@@ -1111,8 +1110,8 @@ useEffect(() => {
             <span className="nav-label">Export Excel</span>
           </button>
           {(userProfile?.role === 'dev' || userProfile?.role === 'admin') && (
-            <button className={`nav-item ${showPortal ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPortal(true); }}>
-              <svg className="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 8 8 12 12 16"></polyline><line x1="16" y1="12" x2="8" y2="12"></line></svg>
+            <button className={`nav-item ${view === 'import_portal' ? 'active' : ''}`} onClick={() => setView('import_portal')}>
+              <svg className="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 8 8 12 12 16"></polyline><line x1="16" y1="12" x2="8" y2="12"></line></svg>
               <span className="nav-label">Cổng Dữ Liệu</span>
             </button>
           )}
@@ -1298,16 +1297,136 @@ useEffect(() => {
               <div className="filter-divider" />
 
               <div className="period-tabs-container">
-                <button className={`period-tab-btn ${periodTab === 'weekly' ? 'active' : ''}`} onClick={() => setPeriodTab('weekly')}>Tuần (Weekly)</button>
-                <button className={`period-tab-btn ${periodTab === 'fullMonth' ? 'active' : ''}`} onClick={() => setPeriodTab('fullMonth')}>Tháng (Full Month)</button>
-                <button className={`period-tab-btn ${periodTab === 'mtd' ? 'active' : ''}`} onClick={() => setPeriodTab('mtd')}>Luỹ kế (MTD)</button>
-                <button className={`period-tab-btn ${periodTab === 'custom' ? 'active' : ''}`} onClick={() => {
-                  setTempStart(custStart || dateRangeBounds.min);
-                  setTempEnd(custEnd || dateRangeBounds.max);
-                  setDateRangeOpen(true);
-                }}>
-                  {periodTab === 'custom' && custStart && custEnd ? `Lọc ngày: ${custStart.split('-')[2]}/${custStart.split('-')[1]} - ${custEnd.split('-')[2]}/${custEnd.split('-')[1]}` : 'Tùy chọn (Custom)'}
-                </button>
+                <button className={`period-tab-btn ${periodTab === 'weekly' ? 'active' : ''}`} onClick={() => setPeriodTab('weekly')}>Week to date</button>
+                <button className={`period-tab-btn ${periodTab === 'mtd' ? 'active' : ''}`} onClick={() => setPeriodTab('mtd')}>Month to date</button>
+                
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <button className={`period-tab-btn ${periodTab === 'custom' ? 'active' : ''}`} onClick={() => {
+                    setTempStart(custStart || dateRangeBounds.min);
+                    setTempEnd(custEnd || dateRangeBounds.max);
+                    setDateRangeOpen(prev => !prev);
+                  }}>
+                    {periodTab === 'custom' && custStart && custEnd ? `Lọc ngày: ${custStart.split('-')[2]}/${custStart.split('-')[1]} - ${custEnd.split('-')[2]}/${custEnd.split('-')[1]}` : 'Tùy chọn (Custom)'}
+                  </button>
+                  {dateRangeOpen && (
+                    <>
+                      <div 
+                        style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: 9998,
+                          background: 'transparent',
+                          backdropFilter: 'none'
+                        }}
+                        onClick={() => setDateRangeOpen(false)}
+                      />
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          right: 0,
+                          marginTop: '8px',
+                          width: '380px',
+                          padding: '20px',
+                          borderRadius: '16px',
+                          background: 'var(--c-surface)',
+                          border: '1px solid var(--c-border)',
+                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                          zIndex: 99999
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <h3 style={{ marginTop: 0, fontSize: '15px', fontWeight: 'bold', color: 'var(--c-text-1)', marginBottom: '8px' }}>Chọn khoảng thời gian</h3>
+                        <p style={{ color: 'var(--c-text-2)', fontSize: '12px', marginBottom: '16px' }}>
+                          Chọn ngày bắt đầu và ngày kết thúc trong khoảng dữ liệu cho phép ({dateRangeBounds.min} → {dateRangeBounds.max}).
+                        </p>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: 'var(--c-text-2)', marginBottom: '4px' }}>Từ ngày</label>
+                            <input 
+                              type="date"
+                              value={tempStart}
+                              min={dateRangeBounds.min}
+                              max={dateRangeBounds.max}
+                              onChange={e => setTempStart(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--c-border)',
+                                background: 'var(--c-bg)',
+                                color: 'var(--c-text-1)',
+                                fontSize: '13px'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: 'var(--c-text-2)', marginBottom: '4px' }}>Đến ngày</label>
+                            <input 
+                              type="date"
+                              value={tempEnd}
+                              min={dateRangeBounds.min}
+                              max={dateRangeBounds.max}
+                              onChange={e => setTempEnd(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--c-border)',
+                                background: 'var(--c-bg)',
+                                color: 'var(--c-text-1)',
+                                fontSize: '13px'
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                          <button 
+                            onClick={() => setDateRangeOpen(false)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              border: '1px solid var(--c-border)',
+                              background: 'transparent',
+                              color: 'var(--c-text-1)',
+                              fontSize: '13px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Hủy
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (tempStart && tempEnd) {
+                                setCustStart(tempStart);
+                                setCustEnd(tempEnd);
+                                setPeriodTab('custom');
+                                setDateRangeOpen(false);
+                              }
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: 'var(--c-primary, #0066cc)',
+                              color: '#fff',
+                              fontSize: '13px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
                 {view === 'detail_reports' && (
                   <button className={`period-tab-btn ${periodTab === 'shifts' ? 'active' : ''}`} onClick={() => setPeriodTab('shifts')}>Ca làm (Shifts)</button>
                 )}
@@ -1506,7 +1625,27 @@ useEffect(() => {
         )}
 
         {view === 'configure' && (
-          <ConfigurePanel onConfigChanged={() => setLogTick(prev => prev + 1)} interdistData={M.raw} />
+          <ConfigurePanel onConfigChanged={() => setLogTick(prev => prev + 1)} interdistData={M.raw} userProfile={userProfile} />
+        )}
+
+        {view === 'import_portal' && (userProfile?.role === 'dev' || userProfile?.role === 'admin') && (
+          <DashboardImportPortal
+            theme={t.theme}
+            canClose={true}
+            isFullScreen={false}
+            userProfile={userProfile}
+            onClose={() => setView('dashboard')}
+            onDataParsed={(processedData, fileName, shouldClose = true) => {
+              (window as any).INTERDIST_DATA = processedData;
+              (window as any)._isUsingBaseline = false;
+              setHasRealData(true);
+              setLogTick(prev => prev + 1);
+              setUploadedFileName(fileName);
+              if (shouldClose) {
+                setView('dashboard');
+              }
+            }}
+          />
         )}
 
          {view === 'admin_users' && (
@@ -1521,123 +1660,7 @@ useEffect(() => {
       <BADrawer ba={selectedBA} onClose={() => setSelectedBA(null)} />
       <DashboardDebugConsole open={debugOpen} onClose={() => setDebugOpen(false)} onOpen={() => setDebugOpen(true)} excelOpen={excelOpen} setExcelOpen={setExcelOpen} />
 
-      {dateRangeOpen && (
-        <div 
-          className="daterange-picker-container"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 999999,
-            background: 'rgba(10,25,47,0.4)',
-            backdropFilter: 'blur(12px)'
-          }}
-          onClick={() => setDateRangeOpen(false)}
-        >
-          <div 
-            style={{
-              width: '100%',
-              maxWidth: '430px',
-              padding: '28px',
-              borderRadius: '20px',
-              background: 'var(--c-surface)',
-              border: '1px solid var(--c-border)',
-              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 style={{ marginTop: 0, fontSize: '18px', fontWeight: 'bold', color: 'var(--c-text-1)', marginBottom: '8px' }}>Chọn khoảng thời gian</h3>
-            <p style={{ color: 'var(--c-text-2)', fontSize: '13px', marginBottom: '20px' }}>
-              Chọn ngày bắt đầu và ngày kết thúc trong khoảng dữ liệu cho phép ({dateRangeBounds.min} → {dateRangeBounds.max}).
-            </p>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: 'var(--c-text-2)', marginBottom: '6px' }}>Từ ngày (Start)</label>
-                <input 
-                  type="date"
-                  value={tempStart}
-                  min={dateRangeBounds.min}
-                  max={dateRangeBounds.max}
-                  onChange={e => setTempStart(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--c-border)',
-                    background: 'var(--c-bg)',
-                    color: 'var(--c-text-1)',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: 'var(--c-text-2)', marginBottom: '6px' }}>Đến ngày (End)</label>
-                <input 
-                  type="date"
-                  value={tempEnd}
-                  min={dateRangeBounds.min}
-                  max={dateRangeBounds.max}
-                  onChange={e => setTempEnd(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--c-border)',
-                    background: 'var(--c-bg)',
-                    color: 'var(--c-text-1)',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button 
-                onClick={() => setDateRangeOpen(false)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--c-border)',
-                  background: 'transparent',
-                  color: 'var(--c-text-1)',
-                  fontSize: '14px',
-                  cursor: 'pointer'
-                }}
-              >
-                Hủy
-              </button>
-              <button 
-                onClick={() => {
-                  if (tempStart && tempEnd) {
-                    setCustStart(tempStart);
-                    setCustEnd(tempEnd);
-                    setPeriodTab('custom');
-                    setDateRangeOpen(false);
-                  }
-                }}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'var(--c-primary, #0066cc)',
-                  color: '#fff',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <TweaksPanel title="Tweaks">
         <TweakSection label="Visual">
@@ -1646,25 +1669,19 @@ useEffect(() => {
         </TweakSection>
       </TweaksPanel>
 
-      {(userProfile?.role === 'dev' || userProfile?.role === 'admin') && (showPortal || !hasRealData) && (
+      {(userProfile?.role === 'dev' || userProfile?.role === 'admin') && !hasRealData && (
         <DashboardImportPortal 
           theme={t.theme}
-          canClose={hasRealData}
-          onClose={() => {
-            if (!hasRealData) {
-              return;
-            }
-            setShowPortal(false);
-          }}
-          onDataParsed={(processedData, fileName, shouldClose = true) => {
+          canClose={false}
+          isFullScreen={true}
+          userProfile={userProfile}
+          onClose={() => {}}
+          onDataParsed={(processedData, fileName) => {
             (window as any).INTERDIST_DATA = processedData;
             (window as any)._isUsingBaseline = false;
             setHasRealData(true);
             setLogTick(prev => prev + 1);
             setUploadedFileName(fileName);
-            if (shouldClose) {
-              setShowPortal(false);
-            }
           }}
         />
       )}

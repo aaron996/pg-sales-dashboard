@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DEFAULT_BASELINE_DATA } from './data';
 import * as XLSX from 'xlsx';
 import { STORE_MAPPING, PRODUCT_PRICES } from './configData';
+import { supabase } from './lib/supabase';
 
 // --- Component Source: tweaks-panel.jsx ---
 
@@ -1649,16 +1650,83 @@ const ExportExcelDialog = ({ open, onClose }) => {
 
 
 /* === Glassmorphic Drag-and-Drop Import Portal === */
-const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClose = true }) => {
+// Helper to convert ArrayBuffer to Base64 string for file logging
+export const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+};
+
+// Global log writing function
+export const recordImportLog = async (
+  userEmail: string,
+  userId: string,
+  importType: 'sales_data' | 'config_data',
+  files: Array<{ name: string; size: number; content: string }>
+) => {
+  try {
+    const timestamp = Date.now();
+    const logKey = `importLog_${timestamp}_${userId}`;
+    const logValue = {
+      timestamp: new Date().toISOString(),
+      userEmail,
+      userId,
+      importType,
+      filesCount: files.length,
+      files // Array of { name, size, content }
+    };
+    await supabase.from('configurations').insert({
+      key: logKey,
+      value: logValue,
+      updated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Failed to write import log to Supabase:", error);
+  }
+};
+
+export const downloadBase64File = (base64: string, filename: string) => {
+  try {
+    const binary = window.atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to download file:", err);
+  }
+};
+
+const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClose = true, isFullScreen = false, userProfile = null }) => {
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
+  const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedList, setUploadedList] = useState<any[]>(() => {
     return (window as any)._IMPORTED_FILES || [];
   });
+  
+  const [activeTab, setActiveTab] = useState<'import' | 'logs'>('import');
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<any>(null);
 
   const isLight = theme === 'light';
 
@@ -1671,6 +1739,36 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClos
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose, loading, canClose]);
+
+  const fetchLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('configurations')
+        .select('*')
+        .like('key', 'importLog_%');
+      if (error) throw error;
+      
+      const parsedLogs = (data || []).map((row: any) => {
+        return {
+          key: row.key,
+          ...row.value
+        };
+      }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      setLogs(parsedLogs);
+    } catch (err) {
+      console.error("Failed to fetch import logs:", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'logs' && !isFullScreen) {
+      fetchLogs();
+    }
+  }, [activeTab, isFullScreen]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -1731,12 +1829,23 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClos
 
     setErrorMsg("");
     setLoading(true);
+    setProgress(10);
     const count = acceptedFiles.length;
     setLoadingStep(`Đang nạp ${count} tệp...`);
 
     if ((window as any).addDashboardLog) {
       (window as any).addDashboardLog(`📁 Bắt đầu tải ${count} tệp dữ liệu`);
     }
+
+    const progressInterval = setInterval(() => {
+      setProgress(p => {
+        if (p >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return p + 10;
+      });
+    }, 120);
 
     try {
       const newProcessed = await Promise.all(
@@ -1764,27 +1873,55 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClos
       (window as any)._IMPORTED_FILES = newList;
       setUploadedList(newList);
 
+      clearInterval(progressInterval);
+      setProgress(95);
       setLoadingStep("Đang phân tích và gộp dữ liệu các tệp...");
       const baseline = DEFAULT_BASELINE_DATA;
       const processed = processExcelData(newList, baseline);
       
+      setProgress(100);
       setLoadingStep("Hoàn thành! Đang nạp giao diện báo cáo...");
       if ((window as any).addDashboardLog) {
         (window as any).addDashboardLog(`✅ Phân tích và gộp thành công ${count} tệp! Tổng cộng ${newList.length} tệp.`);
       }
       setSuccessMsg(`Đọc và gộp thành công. Vui lòng đóng cổng dữ liệu hoặc thêm file khác.`);
       
+      // Save log in background
+      try {
+        const filesForLog = newProcessed.map((fileData) => {
+          let contentStr = '';
+          if (fileData.data instanceof ArrayBuffer) {
+            contentStr = arrayBufferToBase64(fileData.data);
+          } else {
+            contentStr = String(fileData.data);
+          }
+          return {
+            name: fileData.name,
+            size: fileData.size,
+            content: contentStr
+          };
+        });
+        if (userProfile?.email) {
+          recordImportLog(userProfile.email, userProfile.uid || 'unknown', 'sales_data', filesForLog);
+        }
+      } catch (logErr) {
+        console.error("Failed to write background import log:", logErr);
+      }
+
       setTimeout(() => {
         const mergedName = newList.length === 1 ? newList[0].name : `${newList.length} tệp dữ liệu gộp`;
         onDataParsed(processed, mergedName);
         setLoading(false);
+        setProgress(0);
       }, 800);
     } catch (err: any) {
+      clearInterval(progressInterval);
       if ((window as any).addDashboardLog) {
         (window as any).addDashboardLog(`❌ Lỗi xử lý dữ liệu: ${err.message}`);
       }
       setErrorMsg(`Lỗi phân tích dữ liệu: ${err.message}`);
       setLoading(false);
+      setProgress(0);
     }
   };
 
@@ -1808,290 +1945,430 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClos
     fileInputRef.current.click();
   };
 
+  const outerStyle: React.CSSProperties = isFullScreen ? {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: isLight ? 'rgba(15, 23, 42, 0.3)' : 'rgba(0, 0, 0, 0.6)',
+    backdropFilter: 'blur(6px)',
+    color: isLight ? '#0F172A' : '#F8FAFC',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    padding: '20px',
+    overflowY: 'auto'
+  } : {
+    color: isLight ? '#0F172A' : '#F8FAFC',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    padding: '20px',
+    width: '100%'
+  };
+
+  const innerStyle: React.CSSProperties = isFullScreen ? {
+    width: '100%',
+    maxWidth: '620px',
+    background: isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(30, 41, 59, 0.95)',
+    backdropFilter: 'blur(16px)',
+    borderRadius: '24px',
+    border: isLight ? '1px solid rgba(148, 163, 184, 0.25)' : '1px solid rgba(255, 255, 255, 0.1)',
+    boxShadow: isLight
+      ? '0 24px 64px rgba(15, 23, 42, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.6)'
+      : '0 24px 64px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.05)',
+    padding: '40px',
+    zIndex: 10,
+    position: 'relative'
+  } : {
+    width: '100%',
+    maxWidth: '960px',
+    margin: '0 auto',
+    background: isLight ? 'var(--c-surface)' : 'rgba(30, 41, 59, 0.5)',
+    borderRadius: '24px',
+    border: '1px solid var(--c-border)',
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+    padding: '40px',
+    position: 'relative'
+  };
+
   return (
-    <div 
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: isLight ? 'rgba(15, 23, 42, 0.3)' : 'rgba(0, 0, 0, 0.6)',
-        backdropFilter: 'blur(6px)',
-        color: isLight ? '#0F172A' : '#F8FAFC',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        padding: '20px',
-        overflowY: 'auto',
-        animation: 'overlayFade 0.25s ease forwards'
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading && canClose) onClose();
-      }}
-    >
-      <div 
-        className="anim-rise"
-        style={{
-          width: '100%',
-          maxWidth: '620px',
-          background: isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(30, 41, 59, 0.95)',
-          backdropFilter: 'blur(16px)',
-          borderRadius: '24px',
-          border: isLight ? '1px solid rgba(148, 163, 184, 0.25)' : '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: isLight
-            ? '0 24px 64px rgba(15, 23, 42, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.6)'
-            : '0 24px 64px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.05)',
-          padding: '40px',
-          zIndex: 10,
-          position: 'relative',
-          animation: 'telePop 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
-        }}
-      >
-        {/* Brand Logo & Title */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <img 
-            src="https://i.ibb.co/DDQVDRbH/image.png" 
-            alt="Logo" 
-            style={{ 
-              height: '44px', 
-              marginBottom: '16px', 
-              filter: isLight ? 'none' : 'brightness(1.1)' 
-            }} 
-          />
-          <h2 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 8px 0', letterSpacing: '-0.5px', color: isLight ? '#0F172A' : '#F1F5F9' }}>P&G Sales Operations</h2>
-          <p style={{ margin: 0, fontSize: '14.5px', color: isLight ? '#475569' : '#94A3B8', fontWeight: '400' }}>Cổng nhập file báo cáo doanh số & Quản lý ca làm</p>
-        </div>
-
-        {/* Drag & Drop Area */}
-        <div 
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          onClick={triggerFileInput}
-          style={{
-            border: dragActive ? '2px dashed #3B82F6' : (isLight ? '1px dashed rgba(15, 23, 42, 0.2)' : '1px dashed rgba(255, 255, 255, 0.2)'),
-            background: dragActive ? (isLight ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.08)') : (isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(0, 0, 0, 0.15)'),
-            borderRadius: '16px',
-            padding: '40px 20px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            position: 'relative',
-            marginBottom: '24px'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.border = '1px dashed rgba(59, 130, 246, 0.5)'; e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(255, 255, 255, 0.02)'; }}
-          onMouseLeave={e => { e.currentTarget.style.border = dragActive ? '2px dashed #3B82F6' : (isLight ? '1px dashed rgba(15, 23, 42, 0.2)' : '1px dashed rgba(255, 255, 255, 0.2)'); e.currentTarget.style.background = dragActive ? (isLight ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.08)') : (isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(0, 0, 0, 0.15)'); }}
-        >
-          <input 
-            ref={fileInputRef}
-            type="file" 
-            style={{ display: 'none' }} 
-            onChange={handleChange}
-            accept=".xlsx, .xls, .xlsb, .csv"
-            multiple
-          />
-
-          {!loading ? (
-            <>
-              {/* Upload Icon */}
-              <div style={{ marginBottom: '16px', color: dragActive ? '#3B82F6' : (isLight ? '#475569' : '#64748B') }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 0.3s' }}>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
+    <div style={outerStyle}>
+      <div style={innerStyle}>
+        
+        {/* Header Title / Navigation tabs if in page view */}
+        {!isFullScreen && (
+          <div style={{ marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '700', margin: '0 0 6px 0', color: isLight ? '#0F172A' : '#F1F5F9' }}>Cổng Dữ Liệu</h2>
+            <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: isLight ? '#475569' : '#94A3B8' }}>Quản lý nhập tệp báo cáo doanh số và xem lịch sử cập nhật hệ thống.</p>
+            
+            {(userProfile?.role === 'admin' || userProfile?.role === 'dev') && (
+              <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--c-border)', marginBottom: '8px' }}>
+                <button 
+                  style={{
+                    padding: '10px 4px',
+                    border: 'none',
+                    background: 'none',
+                    color: activeTab === 'import' ? 'var(--c-primary, #3B82F6)' : 'var(--c-text-2)',
+                    borderBottom: activeTab === 'import' ? '2px solid var(--c-primary, #3B82F6)' : '2px solid transparent',
+                    fontWeight: activeTab === 'import' ? '600' : '500',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                  onClick={() => setActiveTab('import')}
+                >
+                  Import Dữ Liệu
+                </button>
+                <button 
+                  style={{
+                    padding: '10px 4px',
+                    border: 'none',
+                    background: 'none',
+                    color: activeTab === 'logs' ? 'var(--c-primary, #3B82F6)' : 'var(--c-text-2)',
+                    borderBottom: activeTab === 'logs' ? '2px solid var(--c-primary, #3B82F6)' : '2px solid transparent',
+                    fontWeight: activeTab === 'logs' ? '600' : '500',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                  onClick={() => setActiveTab('logs')}
+                >
+                  Lịch Sử Import
+                </button>
               </div>
-              <p style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: '600', color: isLight ? '#0F172A' : '#E2E8F0' }}>Kéo thả file Excel hoặc CSV của bạn vào đây</p>
-              <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: isLight ? '#475569' : '#64748B' }}>Thêm tệp mới vào tập dữ liệu (Hỗ trợ .xlsx, .csv)</p>
-              <button 
-                type="button" 
-                style={{
-                  background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.06)',
-                  border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(255, 255, 255, 0.1)',
-                  color: isLight ? '#0F172A' : '#E2E8F0',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onClick={(e) => { e.stopPropagation(); triggerFileInput(); }}
-                onMouseEnter={e => { e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.12)'; e.currentTarget.style.borderColor = isLight ? 'rgba(15,23,42,0.2)' : 'rgba(255,255,255,0.2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.06)'; e.currentTarget.style.borderColor = isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)'; }}
-              >
-                Chọn file từ thiết bị
-              </button>
-            </>
-          ) : (
-            <div style={{ padding: '20px 0' }}>
-              {/* Spinner */}
-              <div 
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  border: isLight ? '3px solid rgba(59, 130, 246, 0.1)' : '3px solid rgba(59, 130, 246, 0.2)',
-                  borderTop: '3px solid #3B82F6',
-                  borderRadius: '50%',
-                  margin: '0 auto 16px auto',
-                  animation: 'spin 1s linear infinite'
-                }}
-              />
-              <p style={{ margin: '0 0 6px 0', fontSize: '15px', fontWeight: '600', color: isLight ? '#0F172A' : '#F1F5F9' }}>{loadingStep}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Uploaded Files List */}
-        {uploadedList.length > 0 && (
-          <div style={{ marginBottom: '24px', textAlign: 'left' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', color: isLight ? '#334155' : '#94A3B8', marginBottom: '12px' }}>Tệp Dữ Liệu Đã Nạp ({uploadedList.length})</h3>
-            <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
-              {uploadedList.map((f, i) => (
-                <div key={i} style={{ 
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', 
-                  borderRadius: '10px', background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.03)',
-                  border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255,255,255,0.05)'
-                }}>
-                  <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                      <span style={{ fontSize: '13.5px', fontWeight: '500', color: isLight ? '#0F172A' : '#F1F5F9', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{f.name}</span>
-                      <span style={{ fontSize: '12px', color: isLight ? '#64748B' : '#94A3B8' }}>{f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : 'Đã nạp'}</span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => handleRemoveFile(i)}
-                    style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}
-                    onMouseEnter={e => e.currentTarget.style.background = isLight ? '#FEE2E2' : 'rgba(239, 68, 68, 0.15)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                    title="Xóa tệp"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
         )}
 
-        {/* Status / Error Notification */}
-        {errorMsg && (
-          <div style={{ background: isLight ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px 16px', borderRadius: '12px', color: isLight ? '#DC2626' : '#FCA5A5', fontSize: '13.5px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '24px' }}>
-            <span style={{ fontSize: '16px', lineHeight: '1' }}>⚠️</span>
-            <span style={{ flex: 1 }}>{errorMsg}</span>
-          </div>
-        )}
-
-        {successMsg && (
-          <div style={{ background: isLight ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px 16px', borderRadius: '12px', color: isLight ? '#059669' : '#A7F3D0', fontSize: '13.5px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '24px' }}>
-            <span style={{ fontSize: '16px', lineHeight: '1' }}>✅</span>
-            <span style={{ flex: 1 }}>{successMsg}</span>
-          </div>
-        )}
-
-        {/* Action Panel Footer */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
-          {!canClose && (
-            <div style={{ fontSize: '13.5px', color: '#EF4444', textAlign: 'center', fontWeight: '600', padding: '0 8px' }}>
-              ⚠️ Vui lòng nạp file báo cáo hoặc chọn dùng dữ liệu mẫu để tiếp tục
-            </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-            {uploadedList.length > 0 && (
-              <button 
-                type="button" 
-                onClick={onClose}
-                style={{
-                  width: '100%',
-                  background: isLight 
-                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                    : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  fontSize: '14.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  textAlign: 'center',
-                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
-                }}
-              >
-                Hoàn tất & Tiếp tục xem Dashboard
-              </button>
+        {/* Tab 1: IMPORT VIEW */}
+        {activeTab === 'import' && (
+          <>
+            {isFullScreen && (
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <img 
+                  src="https://i.ibb.co/DDQVDRbH/image.png" 
+                  alt="Logo" 
+                  style={{ 
+                    height: '44px', 
+                    marginBottom: '16px', 
+                    filter: isLight ? 'none' : 'brightness(1.1)' 
+                  }} 
+                />
+                <h2 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 8px 0', letterSpacing: '-0.5px', color: isLight ? '#0F172A' : '#F1F5F9' }}>P&G Sales Operations</h2>
+                <p style={{ margin: 0, fontSize: '14.5px', color: isLight ? '#475569' : '#94A3B8', fontWeight: '400' }}>Cổng nhập file báo cáo doanh số & Quản lý ca làm</p>
+              </div>
             )}
 
-            {/* Skip / Use Sample Data Button */}
-            <button 
-              type="button" 
-              disabled={loading}
-              onClick={() => {
-                setLoading(true);
-                setLoadingStep("Đang nạp dữ liệu mẫu tháng 05/2026...");
-                if ((window as any).addDashboardLog) {
-                  (window as any).addDashboardLog("⚡ Kích hoạt tải dữ liệu mẫu mặc định (Tháng 05/2026)...");
-                }
-                setTimeout(() => {
-                  (window as any)._IMPORTED_FILES = [];
-                  setUploadedList([]);
-                  onDataParsed(DEFAULT_BASELINE_DATA, "Dữ liệu mẫu (May 2026)");
-                  setLoading(false);
-                }, 800);
-              }}
+            {/* Drag & Drop Area */}
+            <div 
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              onClick={triggerFileInput}
               style={{
-                width: '100%',
-                background: uploadedList.length === 0 ? (isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.8) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)') : 'transparent',
-                border: uploadedList.length === 0 ? (isLight ? '1px solid rgba(148, 163, 184, 0.3)' : '1px solid rgba(255, 255, 255, 0.12)') : '1px solid transparent',
-                color: uploadedList.length === 0 ? (isLight ? '#0F172A' : '#F1F5F9') : (isLight ? '#64748B' : '#94A3B8'),
-                padding: '12px 16px',
-                borderRadius: '12px',
-                fontSize: '14.5px',
-                fontWeight: uploadedList.length === 0 ? '600' : '500',
-                textDecoration: uploadedList.length === 0 ? 'none' : 'underline',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                opacity: loading ? 0.5 : 1,
+                border: dragActive ? '2px dashed #3B82F6' : (isLight ? '1px dashed rgba(15, 23, 42, 0.2)' : '1px dashed rgba(255, 255, 255, 0.2)'),
+                background: dragActive ? (isLight ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.08)') : (isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(0, 0, 0, 0.15)'),
+                borderRadius: '16px',
+                padding: '40px 20px',
                 textAlign: 'center',
-                boxShadow: uploadedList.length === 0 && isLight ? '0 2px 4px rgba(15, 23, 42, 0.05)' : 'none'
-              }}
-              onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)'; e.currentTarget.style.background = isLight ? 'rgba(59, 130, 246, 0.04)' : 'rgba(59, 130, 246, 0.1)'; e.currentTarget.style.color = isLight ? '#0F172A' : '#F1F5F9'; } }}
-              onMouseLeave={e => { if (!loading) { e.currentTarget.style.borderColor = uploadedList.length === 0 ? (isLight ? 'rgba(148, 163, 184, 0.3)' : 'rgba(255, 255, 255, 0.12)') : 'transparent'; e.currentTarget.style.background = uploadedList.length === 0 ? (isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.8) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)') : 'transparent'; e.currentTarget.style.color = uploadedList.length === 0 ? (isLight ? '#0F172A' : '#F1F5F9') : (isLight ? '#64748B' : '#94A3B8'); } }}
-            >
-              Hoặc khôi phục & dùng dữ liệu mẫu (Sample Data)
-            </button>
-          </div>
-
-          {uploadedList.length === 0 && canClose && (
-            <button 
-              type="button" 
-              disabled={loading}
-              onClick={onClose}
-              style={{
-                background: 'transparent',
-                border: isLight ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid rgba(255, 255, 255, 0.15)',
-                color: isLight ? '#475569' : '#94A3B8',
-                padding: '10px 20px',
-                borderRadius: '12px',
-                fontSize: '13.5px',
-                fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                marginBottom: '24px'
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = isLight ? '#0F172A' : '#F1F5F9'; e.currentTarget.style.background = isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = isLight ? '#475569' : '#94A3B8'; e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={e => { e.currentTarget.style.border = '1px dashed rgba(59, 130, 246, 0.5)'; e.currentTarget.style.background = isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(255, 255, 255, 0.02)'; }}
+              onMouseLeave={e => { e.currentTarget.style.border = dragActive ? '2px dashed #3B82F6' : (isLight ? '1px dashed rgba(15, 23, 42, 0.2)' : '1px dashed rgba(255, 255, 255, 0.2)'); e.currentTarget.style.background = dragActive ? (isLight ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.08)') : (isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(0, 0, 0, 0.15)'); }}
             >
-              Đóng cổng dữ liệu
-            </button>
-          )}
-        </div>
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                style={{ display: 'none' }} 
+                onChange={handleChange}
+                accept=".xlsx, .xls, .xlsb, .csv"
+                multiple
+              />
+
+              {!loading ? (
+                <>
+                  <div style={{ marginBottom: '16px', color: dragActive ? '#3B82F6' : (isLight ? '#475569' : '#64748B') }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 0.3s' }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                  </div>
+                  <p style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: '600', color: isLight ? '#0F172A' : '#E2E8F0' }}>Kéo thả file Excel hoặc CSV của bạn vào đây</p>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: isLight ? '#475569' : '#64748B' }}>Thêm tệp mới vào tập dữ liệu (Hỗ trợ .xlsx, .csv)</p>
+                  <button 
+                    type="button" 
+                    style={{
+                      background: isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.06)',
+                      border: isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(255, 255, 255, 0.1)',
+                      color: isLight ? '#0F172A' : '#E2E8F0',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={(e) => { e.stopPropagation(); triggerFileInput(); }}
+                  >
+                    Chọn file từ thiết bị
+                  </button>
+                </>
+              ) : (
+                <div style={{ padding: '20px 0', width: '100%', maxWidth: '400px', margin: '0 auto' }}>
+                  {/* Progress bar container */}
+                  <div style={{ width: '100%', height: '6px', background: isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden', marginBottom: '16px' }}>
+                    <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, #3B82F6 0%, #1D4ED8 100%)', borderRadius: '3px', transition: 'width 0.2s ease-out' }} />
+                  </div>
+                  <p style={{ margin: '0 0 6px 0', fontSize: '14.5px', fontWeight: '600', color: isLight ? '#0F172A' : '#F1F5F9' }}>{loadingStep}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Uploaded Files List */}
+            {uploadedList.length > 0 && (
+              <div style={{ marginBottom: '24px', textAlign: 'left' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', color: isLight ? '#334155' : '#94A3B8', marginBottom: '12px' }}>Tệp Dữ Liệu Đã Nạp ({uploadedList.length})</h3>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                  {uploadedList.map((f, i) => (
+                    <div key={i} style={{ 
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', 
+                      borderRadius: '10px', background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.03)',
+                      border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255,255,255,0.05)'
+                    }}>
+                      <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                          <span style={{ fontSize: '13.5px', fontWeight: '500', color: isLight ? '#0F172A' : '#F1F5F9', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{f.name}</span>
+                          <span style={{ fontSize: '12px', color: isLight ? '#64748B' : '#94A3B8' }}>{f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : 'Đã nạp'}</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleRemoveFile(i)}
+                        style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}
+                        title="Xóa tệp"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {errorMsg && (
+              <div style={{ background: isLight ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px 16px', borderRadius: '12px', color: isLight ? '#DC2626' : '#FCA5A5', fontSize: '13.5px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '24px' }}>
+                <span>⚠️</span>
+                <span style={{ flex: 1 }}>{errorMsg}</span>
+              </div>
+            )}
+
+            {successMsg && (
+              <div style={{ background: isLight ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px 16px', borderRadius: '12px', color: isLight ? '#059669' : '#A7F3D0', fontSize: '13.5px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '24px' }}>
+                <span>✅</span>
+                <span style={{ flex: 1 }}>{successMsg}</span>
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+              {!canClose && (
+                <div style={{ fontSize: '13.5px', color: '#EF4444', textAlign: 'center', fontWeight: '600', padding: '0 8px' }}>
+                  ⚠️ Vui lòng nạp file báo cáo hoặc chọn dùng dữ liệu mẫu để tiếp tục
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                {uploadedList.length > 0 && isFullScreen && (
+                  <button 
+                    type="button" 
+                    onClick={onClose}
+                    style={{
+                      width: '100%',
+                      background: isLight 
+                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      fontSize: '14.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      textAlign: 'center'
+                    }}
+                  >
+                    Hoàn tất & Tiếp tục xem Dashboard
+                  </button>
+                )}
+
+                {isFullScreen && (
+                  <button 
+                    type="button" 
+                    disabled={loading}
+                    onClick={() => {
+                      setLoading(true);
+                      setProgress(20);
+                      setLoadingStep("Đang nạp dữ liệu mẫu tháng 05/2026...");
+                      const progInterval = setInterval(() => {
+                        setProgress(p => p >= 90 ? 90 : p + 15);
+                      }, 100);
+                      setTimeout(() => {
+                        clearInterval(progInterval);
+                        setProgress(100);
+                        (window as any)._IMPORTED_FILES = [];
+                        setUploadedList([]);
+                        onDataParsed(DEFAULT_BASELINE_DATA, "Dữ liệu mẫu (May 2026)");
+                        setLoading(false);
+                        setProgress(0);
+                      }, 800);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: uploadedList.length === 0 ? (isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.8) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)') : 'transparent',
+                      border: uploadedList.length === 0 ? (isLight ? '1px solid rgba(148, 163, 184, 0.3)' : '1px solid rgba(255, 255, 255, 0.12)') : '1px solid transparent',
+                      color: uploadedList.length === 0 ? (isLight ? '#0F172A' : '#F1F5F9') : (isLight ? '#64748B' : '#94A3B8'),
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      fontSize: '14.5px',
+                      fontWeight: uploadedList.length === 0 ? '600' : '500',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Hoặc khôi phục & dùng dữ liệu mẫu (Sample Data)
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Tab 2: IMPORT LOGS VIEW */}
+        {activeTab === 'logs' && !isFullScreen && (
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: isLight ? '#334155' : '#E2E8F0', margin: 0 }}>Lịch sử tải tệp hệ thống</h3>
+              <button 
+                onClick={fetchLogs} 
+                className="btn btn-secondary btn-sm"
+                disabled={logsLoading}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span>🔄 Làm mới</span>
+              </button>
+            </div>
+
+            {logsLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-text-3)' }}>
+                <span className="animate-spin" style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid transparent', borderTop: '2px solid var(--c-primary, #3B82F6)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginRight: '8px' }} />
+                Đang tải nhật ký...
+              </div>
+            ) : logs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-text-3)', border: '1px dashed var(--c-border)', borderRadius: '12px' }}>
+                Chưa ghi nhận lượt import nào trên hệ thống.
+              </div>
+            ) : (
+              <div className="config-table-container" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                <table className="config-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '25%' }}>Thời gian</th>
+                      <th style={{ width: '35%' }}>Người thực hiện</th>
+                      <th style={{ width: '20%' }}>Loại dữ liệu</th>
+                      <th className="config-cell-center" style={{ width: '10%' }}>Tệp tin</th>
+                      <th className="config-cell-center" style={{ width: '10%' }}>Chi tiết</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log) => (
+                      <tr key={log.key}>
+                        <td className="config-cell-mono">
+                          {new Date(log.timestamp).toLocaleString('vi-VN')}
+                        </td>
+                        <td style={{ fontWeight: 500 }}>{log.userEmail}</td>
+                        <td>
+                          <span className={`config-badge ${log.importType === 'sales_data' ? 'config-badge-blue' : 'config-badge-green'}`}>
+                            {log.importType === 'sales_data' ? 'Excel Doanh Số' : 'Cấu Hình Hệ Thống'}
+                          </span>
+                        </td>
+                        <td className="config-cell-center" style={{ fontWeight: 600 }}>{log.filesCount} file</td>
+                        <td className="config-cell-center">
+                          {userProfile?.role === 'dev' ? (
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setSelectedLog(log)}
+                              style={{ padding: '4px 8px', fontSize: '11.5px' }}
+                            >
+                              Chi tiết
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: 'var(--c-text-3)' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
+      {/* Log Detail Overlay Modal */}
+      {selectedLog && (
+        <div 
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)'
+          }}
+          onClick={() => setSelectedLog(null)}
+        >
+          <div 
+            style={{
+              width: '100%', maxWidth: '500px', background: 'var(--c-surface)',
+              border: '1px solid var(--c-border)', borderRadius: '20px', padding: '24px',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0, fontSize: '16.5px', fontWeight: '700', borderBottom: '1px solid var(--c-border)', paddingBottom: '12px' }}>Chi tiết tệp import</h3>
+            <div style={{ display: 'grid', gap: '8px', margin: '14px 0', fontSize: '13px', color: 'var(--c-text-2)' }}>
+              <div><strong>Người import:</strong> {selectedLog.userEmail}</div>
+              <div><strong>Thời gian:</strong> {new Date(selectedLog.timestamp).toLocaleString('vi-VN')}</div>
+              <div><strong>Phân loại:</strong> {selectedLog.importType === 'sales_data' ? 'Excel Doanh Số (Raw Data)' : 'Cấu hình Cloud'}</div>
+            </div>
+            
+            <div style={{ margin: '16px 0' }}>
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px', color: 'var(--c-text-1)' }}>Danh sách tệp tin ({selectedLog.files?.length || 0}):</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto' }}>
+                {(selectedLog.files || []).map((file: any, index: number) => (
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--c-border)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '12.5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '280px', fontWeight: 500 }}>{file.name}</span>
+                    <button 
+                      className="btn btn-primary btn-sm"
+                      onClick={() => downloadBase64File(file.content, file.name)}
+                      style={{ fontSize: '11px', padding: '3px 8px' }}
+                    >
+                      📥 Tải file
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button className="btn btn-ghost" onClick={() => setSelectedLog(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Embedded CSS for Loading Keyframes */}
       <style>{`
         @keyframes spin {

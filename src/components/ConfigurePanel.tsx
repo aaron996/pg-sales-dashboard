@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase, handleFirestoreError, OperationType } from '../lib/supabase';
 import { 
@@ -9,8 +9,9 @@ import {
 import { 
   DollarSign, Users, Target, Download, Save, Search, Plus, Trash2, 
   RefreshCw, CheckCircle, AlertCircle, Edit, FileSpreadsheet, Upload, Info,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check, Clock
 } from 'lucide-react';
+import { recordImportLog, downloadBase64File, arrayBufferToBase64 } from '../components';
 
 export async function loadSystemConfigurations() {
   try {
@@ -48,11 +49,52 @@ export async function loadSystemConfigurations() {
 interface ConfigurePanelProps {
   onConfigChanged: () => void;
   interdistData: any;
+  userProfile?: any;
 }
 
-export default function ConfigurePanel({ onConfigChanged, interdistData }: ConfigurePanelProps) {
-  const [activeTab, setActiveTab] = useState<'prices' | 'sups' | 'targets' | 'excel'>('prices');
+export default function ConfigurePanel({ onConfigChanged, interdistData, userProfile }: ConfigurePanelProps) {
+  const [activeTab, setActiveTab] = useState<'prices' | 'sups' | 'targets' | 'excel' | 'logs'>('prices');
   
+  const [uploadedFileInfo, setUploadedFileInfo] = useState<{
+    name: string;
+    size: number;
+    content: string;
+  } | null>(null);
+
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<any>(null);
+
+  const fetchLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('configurations')
+        .select('*')
+        .like('key', 'importLog_%');
+      if (error) throw error;
+      
+      const parsedLogs = (data || []).map((row: any) => {
+        return {
+          key: row.key,
+          ...row.value
+        };
+      }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      setLogs(parsedLogs);
+    } catch (err) {
+      console.error("Failed to fetch import logs:", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      fetchLogs();
+    }
+  }, [activeTab]);
+
   // Status banner / toast notifications state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'loading' | null }>({
     message: '',
@@ -487,6 +529,17 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
       try {
         const data = e.target?.result;
         if (!data) throw new Error('Không thể đọc file');
+
+        let base64Content = '';
+        if (data instanceof ArrayBuffer) {
+          base64Content = arrayBufferToBase64(data);
+        }
+        setUploadedFileInfo({
+          name: file.name,
+          size: file.size,
+          content: base64Content
+        });
+
         const workbook = XLSX.read(data, { type: 'array' });
         
         let skuCount = 0;
@@ -737,6 +790,21 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
       }
 
       onConfigChanged();
+
+      if (uploadedFileInfo && userProfile?.email) {
+        try {
+          await recordImportLog(
+            userProfile.email,
+            userProfile.uid || 'unknown',
+            'config_data',
+            [uploadedFileInfo]
+          );
+        } catch (logErr) {
+          console.error("Failed to write config import log:", logErr);
+        }
+        setUploadedFileInfo(null);
+      }
+
       showToast('Đã áp dụng & lưu cấu hình toàn bộ lên Supabase Cloud!', 'success');
       setSuccessPopupInfo({
         title: 'Đồng Bộ Thành Công!',
@@ -831,6 +899,16 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
             <FileSpreadsheet size={15} />
             <span>Nhập / Xuất Excel</span>
           </button>
+
+          {(userProfile?.role === 'admin' || userProfile?.role === 'dev') && (
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`config-nav-btn ${activeTab === 'logs' ? 'active' : ''}`}
+            >
+              <Clock size={15} />
+              <span>Lịch Sử Import</span>
+            </button>
+          )}
         </div>
 
         {/* Dynamic Inner Configurations Screen */}
@@ -1599,6 +1677,80 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
             </div>
           )}
 
+          {activeTab === 'logs' && (userProfile?.role === 'admin' || userProfile?.role === 'dev') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <h3 className="config-card-title" style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>Lịch sử tải tệp hệ thống</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--c-text-2)', margin: '4px 0 0 0' }}>Theo dõi nhật ký các tệp dữ liệu và cấu hình đã import lên hệ thống.</p>
+                </div>
+                <button 
+                  onClick={fetchLogs} 
+                  className="btn btn-secondary btn-sm"
+                  disabled={logsLoading}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px' }}
+                >
+                  <RefreshCw size={14} className={logsLoading ? "animate-spin" : ""} />
+                  <span>Làm mới</span>
+                </button>
+              </div>
+
+              {logsLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-text-3)' }}>
+                  <span className="animate-spin" style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid transparent', borderTop: '2px solid var(--c-primary, #3B82F6)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginRight: '8px' }} />
+                  Đang tải nhật ký...
+                </div>
+              ) : logs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-text-3)', border: '1px dashed var(--c-border)', borderRadius: '12px' }}>
+                  Chưa ghi nhận lượt import nào trên hệ thống.
+                </div>
+              ) : (
+                <div className="config-table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                  <table className="config-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '25%' }}>Thời gian</th>
+                        <th style={{ width: '35%' }}>Người thực hiện</th>
+                        <th style={{ width: '20%' }}>Loại dữ liệu</th>
+                        <th className="config-cell-center" style={{ width: '10%' }}>Tệp tin</th>
+                        <th className="config-cell-center" style={{ width: '10%' }}>Chi tiết</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.map((log) => (
+                        <tr key={log.key}>
+                          <td className="config-cell-mono">
+                            {new Date(log.timestamp).toLocaleString('vi-VN')}
+                          </td>
+                          <td style={{ fontWeight: 500 }}>{log.userEmail}</td>
+                          <td>
+                            <span className={`config-badge ${log.importType === 'sales_data' ? 'config-badge-blue' : 'config-badge-green'}`}>
+                              {log.importType === 'sales_data' ? 'Excel Doanh Số' : 'Cấu Hình Hệ Thống'}
+                            </span>
+                          </td>
+                          <td className="config-cell-center" style={{ fontWeight: 600 }}>{log.filesCount} file</td>
+                          <td className="config-cell-center">
+                            {userProfile?.role === 'dev' ? (
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setSelectedLog(log)}
+                                style={{ padding: '4px 8px', fontSize: '11.5px' }}
+                              >
+                                Chi tiết
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--c-text-3)' }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
 
@@ -1693,6 +1845,56 @@ export default function ConfigurePanel({ onConfigChanged, interdistData }: Confi
             >
               Đồng Ý
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Log Detail Overlay Modal */}
+      {selectedLog && (
+        <div 
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)'
+          }}
+          onClick={() => setSelectedLog(null)}
+        >
+          <div 
+            style={{
+              width: '100%', maxWidth: '500px', background: 'var(--c-surface)',
+              border: '1px solid var(--c-border)', borderRadius: '20px', padding: '24px',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0, fontSize: '16.5px', fontWeight: '700', borderBottom: '1px solid var(--c-border)', paddingBottom: '12px', color: 'var(--c-text-1)' }}>Chi tiết tệp import</h3>
+            <div style={{ display: 'grid', gap: '8px', margin: '14px 0', fontSize: '13px', color: 'var(--c-text-2)' }}>
+              <div><strong>Người import:</strong> {selectedLog.userEmail}</div>
+              <div><strong>Thời gian:</strong> {new Date(selectedLog.timestamp).toLocaleString('vi-VN')}</div>
+              <div><strong>Phân loại:</strong> {selectedLog.importType === 'sales_data' ? 'Excel Doanh Số (Raw Data)' : 'Cấu hình Cloud'}</div>
+            </div>
+            
+            <div style={{ margin: '16px 0' }}>
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px', color: 'var(--c-text-1)' }}>Danh sách tệp tin ({selectedLog.files?.length || 0}):</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto' }}>
+                {(selectedLog.files || []).map((file: any, index: number) => (
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--c-border)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '12.5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '280px', fontWeight: 500, color: 'var(--c-text-1)' }}>{file.name}</span>
+                    <button 
+                      className="btn btn-primary btn-sm"
+                      onClick={() => downloadBase64File(file.content, file.name)}
+                      style={{ fontSize: '11px', padding: '3px 8px' }}
+                    >
+                      📥 Tải file
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button className="btn btn-ghost" onClick={() => setSelectedLog(null)}>Đóng</button>
+            </div>
           </div>
         </div>
       )}
