@@ -4,7 +4,65 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+function createMockSupabaseClient() {
+  console.log("🔌 VITE_SUPABASE_URL not configured. Initializing mock Supabase client for preview...");
+  
+  const mockUser = {
+    id: 'mock-user-id',
+    email: 'luongthevinh996@gmail.com',
+    user_metadata: {
+      full_name: 'Admin Developer (Preview)',
+      avatar_url: 'https://i.ibb.co/DDQVDRbH/image.png'
+    }
+  };
+  
+  const mockSession = {
+    user: mockUser,
+    access_token: 'mock-token',
+  };
+
+  const dummyPromise = Promise.resolve({ data: null, error: null });
+  
+  const builder = {
+    select: () => builder,
+    insert: () => dummyPromise,
+    upsert: () => dummyPromise,
+    update: () => dummyPromise,
+    delete: () => dummyPromise,
+    eq: () => builder,
+    maybeSingle: () => Promise.resolve({
+      data: {
+        uid: 'mock-user-id',
+        email: 'luongthevinh996@gmail.com',
+        displayName: 'Admin Developer (Preview)',
+        photoURL: 'https://i.ibb.co/DDQVDRbH/image.png',
+        role: 'dev'
+      },
+      error: null
+    }),
+    single: () => dummyPromise,
+  };
+
+  return {
+    auth: {
+      onAuthStateChange: (callback: any) => {
+        // Automatically mock a successful login state to bypass the login screen
+        const timer = setTimeout(() => {
+          callback('SIGNED_IN', mockSession);
+        }, 50);
+        return { data: { subscription: { unsubscribe: () => clearTimeout(timer) } } };
+      },
+      getSession: () => Promise.resolve({ data: { session: mockSession }, error: null }),
+      signInWithOAuth: () => Promise.resolve({ data: {}, error: null }),
+      signOut: () => Promise.resolve({ error: null }),
+    },
+    from: () => builder,
+  } as any;
+}
+
+export const supabase = (supabaseUrl && supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : createMockSupabaseClient();
 
 export enum OperationType {
   CREATE = 'create',
@@ -29,7 +87,6 @@ export function handleSupabaseError(error: unknown, operationType: OperationType
   let userId = '';
   let email = '';
   try {
-    // Try to retrieve session synchronously
     const session = (supabase.auth as any).session ? (supabase.auth as any).session() : null;
     if (session?.user) {
       userId = session.user.id;
