@@ -1736,7 +1736,7 @@ const ExportExcelDialog = ({ open, onClose }) => {
 
 
 /* === Glassmorphic Drag-and-Drop Import Portal === */
-const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light' }) => {
+const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light', canClose = true }) => {
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
@@ -1751,13 +1751,13 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light' }) => {
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !loading) {
+      if (e.key === 'Escape' && !loading && canClose) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, loading]);
+  }, [onClose, loading, canClose]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -1916,7 +1916,7 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light' }) => {
         animation: 'overlayFade 0.25s ease forwards'
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onClose();
+        if (e.target === e.currentTarget && !loading && canClose) onClose();
       }}
     >
       <div 
@@ -2083,6 +2083,11 @@ const DashboardImportPortal = ({ onClose, onDataParsed, theme = 'light' }) => {
 
         {/* Action Panel Footer */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+          {!canClose && (
+            <div style={{ fontSize: '13.5px', color: '#EF4444', textAlign: 'center', fontWeight: '600', padding: '0 8px' }}>
+              ⚠️ Vui lòng nạp file báo cáo hoặc chọn dùng dữ liệu mẫu để tiếp tục
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             {uploadedList.length > 0 && (
               <button 

@@ -1649,11 +1649,12 @@ useEffect(() => {
       {(userProfile?.role === 'dev' || userProfile?.role === 'admin') && (showPortal || !hasRealData) && (
         <DashboardImportPortal 
           theme={t.theme}
+          canClose={hasRealData}
           onClose={() => {
-            setShowPortal(false);
             if (!hasRealData) {
-              setHasRealData(true); // fallbacks to showing baseline dashboard
+              return;
             }
+            setShowPortal(false);
           }}
           onDataParsed={(processedData, fileName, shouldClose = true) => {
             (window as any).INTERDIST_DATA = processedData;
