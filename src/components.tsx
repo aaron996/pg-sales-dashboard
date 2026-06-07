@@ -1373,11 +1373,13 @@ const ExportReport = ({ open, project, pdata, onClose, onPrint }) => {
 // --- Component Source: export-excel.jsx ---
 /* === Clean Excel Export Dialog === */
 const ExportExcelDialog = ({ open, onClose }) => {
-  const [target, setTarget] = React.useState('all');
+  // NOTE: This component intentionally shadows the name to re-export to window below
   const [channel, setChannel] = React.useState('all');
   const [period, setPeriod] = React.useState('mtd');
   const [isExporting, setIsExporting] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [exportSummary, setExportSummary] = React.useState(true);
+  const [exportDetail, setExportDetail] = React.useState(false);
 
   const [customStart, setCustomStart] = React.useState('');
   const [customEnd, setCustomEnd] = React.useState('');
@@ -1402,10 +1404,14 @@ const ExportExcelDialog = ({ open, onClose }) => {
     return target > 0 ? actual / target : 0;
   };
 
+  const fmtNum = (v) => Number(v) || 0;
+
   const addSheet = (wb, name, rows) => {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
   };
+
+  const hasRawData = !!(D?.tables_data?.raw_rows?.length || D?.rawRows?.length);
 
   const dateRangeBounds = React.useMemo(() => {
     let flatRawRows: any[] = [];
@@ -1479,267 +1485,141 @@ const ExportExcelDialog = ({ open, onClose }) => {
   const exportExcel = () => {
     try {
       setError('');
+
+      if (!exportSummary && !exportDetail) {
+        throw new Error('Vui lòng chọn ít nhất một loại báo cáo để xuất.');
+      }
+
       setIsExporting(true);
 
       const wb = XLSX.utils.book_new();
 
-      // Determine dates bounds and target year/month index from flatRawRows
-      let flatRawRows: any[] = [];
-      if (D.tables_data?.raw_rows && D.tables_data.raw_rows.length > 0) {
-        flatRawRows = D.tables_data.raw_rows;
-      } else if (D.rawRows && D.rawRows.length > 0) {
-        flatRawRows = D.rawRows;
-      } else {
-        const synthRows: any[] = [];
-        const processGroup = (group: any, label: string) => {
-          const storesList = group?.stores || [];
-          const dailyData = group?.daily || {};
-          
-          storesList.forEach((s: any) => {
-            const storeCode = s.code || '';
-            const storeName = s.store || s.name || '';
-            const region = s.region || '';
+      // ====== SHEET 1: Overview + Stores (from structured dashboard data) ======
+      if (exportSummary) {
+        const overview: any[][] = [
+          ['P&G SALES OPERATIONS DASHBOARD - INTERDIST'],
+          [],
+          ['Export time', new Date().toLocaleString('vi-VN')],
+          ['Period', period],
+          ['Channel', channel],
+          ['From', meta.start_day || ''],
+          ['To', meta.updated_to || ''],
+          [],
+          ['Channel', 'Actual MTD', 'Target Full', 'Achievement %']
+        ];
+
+        if ((channel === 'all' || channel === 'crv') && D.crv?.total) {
+          overview.push([
+            'CRV',
+            fmtNum(D.crv.total.actual_mtd),
+            fmtNum(D.crv.total.target_full),
+            safePct(D.crv.total.actual_mtd, D.crv.total.target_full)
+          ]);
+        }
+        if ((channel === 'all' || channel === 'stmb') && D.stmb?.total) {
+          overview.push([
+            'STMB',
+            fmtNum(D.stmb.total.actual_mtd),
+            fmtNum(D.stmb.total.target_full),
+            safePct(D.stmb.total.actual_mtd, D.stmb.total.target_full)
+          ]);
+        }
+
+        addSheet(wb, 'Overview', overview);
+
+        // Stores sheet
+        const storeRows: any[][] = [[
+          'Store Code', 'Store Name', 'Channel', 'Region', 'Supervisor',
+          'Actual MTD', 'Target Full', 'Achievement %'
+        ]];
+
+        const pushStores = (group: any, label: string) => {
+          (group?.stores || []).forEach((s: any) => {
+            if (channel !== 'all' && label.toLowerCase() !== channel) return;
+            const storeCode = String(s.code || '').trim().toUpperCase();
             const mapInfo = STORE_MAPPING[storeCode];
-            const sup = mapInfo?.sup || (label === 'CRV' ? `Region ${region}` : 'A. Tuấn (STMB)');
-            
-            // Gather matching active days
-            const daysWithSales = Object.keys(dailyData).filter(dayStr => {
-              const regData = dailyData[dayStr]?.[region];
-              return regData && regData.TOTAL > 0;
-            });
-            
-            let mtdActual = Number(s.actual || s.actual_mtd || s.actual_full || 0);
-            if (mtdActual > 0) {
-              if (daysWithSales.length > 0) {
-                const amountPerDay = Math.round(mtdActual / daysWithSales.length);
-                daysWithSales.forEach((dayStr, idx) => {
-                  const [d, m] = dayStr.split('/');
-                  const yyyy = '2026';
-                  const dateStr = `${yyyy}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-                  
-                  synthRows.push({
-                    'Ngày báo cáo': dateStr,
-                    'Supervisor': sup,
-                    'Mã cửa hàng': storeCode,
-                    'Tên cửa hàng': storeName,
-                    'Project': label.toLowerCase(),
-                    'Mã vùng': region,
-                    'AMT': idx === daysWithSales.length - 1 ? (mtdActual - (amountPerDay * (daysWithSales.length - 1))) : amountPerDay,
-                    'Target': Number(s.target || s.target_full || 0),
-                    'SKU': label + ' General Sales',
-                    'Giá': idx === daysWithSales.length - 1 ? (mtdActual - (amountPerDay * (daysWithSales.length - 1))) : amountPerDay,
-                    'Qty': 1
-                  });
-                });
-              } else {
-                synthRows.push({
-                  'Ngày báo cáo': '2026-05-01',
-                  'Supervisor': sup,
-                  'Mã cửa hàng': storeCode,
-                  'Tên cửa hàng': storeName,
-                  'Project': label.toLowerCase(),
-                  'Mã vùng': region,
-                  'AMT': mtdActual,
-                  'Target': Number(s.target || s.target_full || 0),
-                  'SKU': label + ' General Sales',
-                  'Giá': mtdActual,
-                  'Qty': 1
-                });
-              }
-            } else {
-              synthRows.push({
-                'Ngày báo cáo': '2026-05-01',
-                'Supervisor': sup,
-                'Mã cửa hàng': storeCode,
-                'Tên cửa hàng': storeName,
-                'Project': label.toLowerCase(),
-                'Mã vùng': region,
-                'AMT': 0,
-                'Target': Number(s.target || s.target_full || 0),
-                'SKU': label + ' General Sales',
-                'Giá': 0,
-                'Qty': 0
-              });
-            }
+            const sup = mapInfo?.sup || (label === 'CRV' ? `Region ${s.region || ''}` : 'A. Tuấn (STMB)');
+            storeRows.push([
+              s.code || '',
+              s.store || s.name || '',
+              label,
+              s.region || '',
+              sup,
+              fmtNum(s.actual || s.actual_mtd || 0),
+              fmtNum(s.target || s.target_full || 0),
+              safePct(s.actual || s.actual_mtd, s.target || s.target_full)
+            ]);
           });
         };
-        
-        if (channel === 'all' || channel === 'crv') processGroup(D?.crv, 'CRV');
-        if (channel === 'all' || channel === 'stmb') processGroup(D?.stmb, 'STMB');
-        flatRawRows = synthRows;
+
+        if (channel === 'all' || channel === 'crv') pushStores(D.crv, 'CRV');
+        if (channel === 'all' || channel === 'stmb') pushStores(D.stmb, 'STMB');
+
+        addSheet(wb, 'Stores', storeRows);
       }
 
-      // Exact Date Bounds Calculations in the Export Context
-      const parsedDates = flatRawRows.map(r => {
-        const d = r['Ngày báo cáo'];
-        return d instanceof Date ? d : (d ? new Date(d) : null);
-      }).filter(Boolean) as Date[];
+      // ====== SHEET 2: Raw Detail (only if raw data exists) ======
+      if (exportDetail) {
+        const rawRows: any[] = D?.tables_data?.raw_rows || D?.rawRows || [];
 
-      let targetYear = 2026;
-      let targetMonthIndex = 4; // May (0-indexed)
-      let maxDate = new Date(2026, 4, 31);
+        const cols = [
+          'Channel', 'Mã cửa hàng', 'Tên cửa hàng', 'Mã vùng',
+          'Mã nhân viên', 'Ngày báo cáo', 'Category',
+          'Item Name', 'Quantity', 'Unit Price', 'AMT', 'Project'
+        ];
 
-      if (parsedDates.length > 0) {
-        const monthCounts: Record<string, number> = {};
-        parsedDates.forEach(d => {
-          const key = `${d.getFullYear()}-${d.getMonth()}`;
-          monthCounts[key] = (monthCounts[key] || 0) + 1;
-        });
-
-        let bestKey = Object.keys(monthCounts)[0];
-        let maxCount = monthCounts[bestKey] || 0;
-        for (const [key, count] of Object.entries(monthCounts)) {
-          if (count > maxCount) {
-            maxCount = count;
-            bestKey = key;
+        const safeFormatDate = (dateVal: any) => {
+          if (!dateVal) return '';
+          if (dateVal instanceof Date) {
+            const y = dateVal.getFullYear();
+            const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+            const d = String(dateVal.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
           }
-        }
-        if (bestKey) {
-          const [yr, mIdx] = bestKey.split('-').map(Number);
-          targetYear = yr;
-          targetMonthIndex = mIdx;
-          const targetDates = parsedDates.filter(d => d.getFullYear() === yr && d.getMonth() === mIdx);
-          if (targetDates.length > 0) {
-            maxDate = new Date(Math.max(...targetDates.map(d => d.getTime())));
+          if (typeof dateVal === 'string') return dateVal.split('T')[0];
+          return String(dateVal);
+        };
+
+        const buildDetailRows = (proj: string) => {
+          const rows: any[][] = [cols];
+          const filtered = rawRows.filter((r: any) => {
+            const p = String(r.Project || '').toLowerCase();
+            return proj === 'all' ? true : p === proj;
+          });
+          filtered.forEach((r: any) => {
+            rows.push([
+              r['Channel'] || (String(r.Project || '').toLowerCase() === 'crv' ? 'CRV' : 'STMB'),
+              r['Mã cửa hàng'] || '',
+              r['Tên cửa hàng'] || '',
+              r['Mã vùng'] || '',
+              r['Mã nhân viên'] || '',
+              safeFormatDate(r['Ngày báo cáo']),
+              r['Category'] || '',
+              r['Item Name'] || '',
+              fmtNum(r['Quantity']),
+              fmtNum(r['Unit Price']),
+              fmtNum(r['AMT']),
+              r['Project'] || ''
+            ]);
+          });
+          return rows;
+        };
+
+        if (rawRows.length === 0) {
+          // Add empty placeholder sheet
+          addSheet(wb, 'Raw Data (Trống)', [['Chưa có dữ liệu raw. Vui lòng import file Excel trước.']]);
+        } else {
+          if (channel === 'all' || channel === 'crv') {
+            addSheet(wb, 'Raw CRV', buildDetailRows('crv'));
+          }
+          if (channel === 'all' || channel === 'stmb') {
+            addSheet(wb, 'Raw STMB', buildDetailRows('stmb'));
           }
         }
       }
 
-      const elapsedDays = maxDate.getDate();
-      const totalDays = new Date(targetYear, targetMonthIndex + 1, 0).getDate();
-
-      const dayOfWeek = maxDate.getDay();
-      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const wtdStart = new Date(maxDate);
-      wtdStart.setDate(maxDate.getDate() - daysToSubtract);
-      wtdStart.setHours(0, 0, 0, 0);
-
-      const mtdStartTime = new Date(targetYear, targetMonthIndex, 1, 0, 0, 0, 0).getTime();
-      const wtdStartTime = wtdStart.getTime();
-      const maxDateTime = maxDate.getTime();
-
-      const customStartT = customStart ? new Date(customStart + 'T00:00:00').getTime() : 0;
-      const customEndT = customEnd ? new Date(customEnd + 'T23:59:59').getTime() : 0;
-
-      // Filter rows strictly to selections
-      const filteredRows = flatRawRows.filter(row => {
-        const proj = String(row.Project || '').toLowerCase();
-        if (channel !== 'all' && proj !== channel) return false;
-
-        let dateVal = row['Ngày báo cáo'];
-        const dt = dateVal instanceof Date ? dateVal : (dateVal ? new Date(dateVal) : null);
-        if (!dt) return false;
-        const dtTime = dt.getTime();
-
-        // Strict Time-bounded Filter
-        if (period === 'mtd') {
-          if (dtTime < mtdStartTime || dtTime > maxDateTime) return false;
-        } else if (period === 'weekly') {
-          if (dtTime < wtdStartTime || dtTime > maxDateTime) return false;
-        } else if (period === 'fullMonth') {
-          const startOfM = mtdStartTime;
-          const endOfM = new Date(targetYear, targetMonthIndex + 1, 0, 23, 59, 59, 999).getTime();
-          if (dtTime < startOfM || dtTime > endOfM) return false;
-        } else if (period === 'custom') {
-          if (dtTime < customStartT || dtTime > customEndT) return false;
-        }
-        return true;
-      });
-
-      if (filteredRows.length === 0) {
-        throw new Error('Không tìm thấy dữ liệu trong kỳ báo cáo hoặc kênh đã chọn.');
-      }
-
-      // Find all possible keys in the rows, and exclude those that represent SKU columns
-      const sampleKeys = new Set<string>();
-      filteredRows.forEach(r => {
-        Object.keys(r).forEach(k => {
-          sampleKeys.add(k);
-        });
-      });
-
-      const KEEP_KEYS = [
-        'Ngày báo cáo',
-        'Mã cửa hàng',
-        'Tên cửa hàng',
-        'Mã vùng',
-        'Mã nhân viên',
-        'Project'
-      ];
-      
-      const baseKeys = Array.from(sampleKeys).filter((k: string) => {
-        return KEEP_KEYS.includes(k);
-      });
-
-      // Define human-readable final sheet headers
-      const finalHeaders = [
-        ...baseKeys,
-        'Supervisor (SUP)',
-        'Sản phẩm',
-        'Số lượng',
-        'Giá',
-        'Doanh thu',
-        'Target'
-      ];
-
-      const sheetRows: any[][] = [finalHeaders];
-
-      filteredRows.forEach(row => {
-        // Build base values list
-        const rowData = baseKeys.map(k => {
-          const v = row[k];
-          if (v instanceof Date) {
-            const dd = String(v.getDate()).padStart(2, '0');
-            const mm = String(v.getMonth() + 1).padStart(2, '0');
-            const yyyy = v.getFullYear();
-            return `${dd}/${mm}/${yyyy}`;
-          }
-          return v;
-        });
-
-        // Resolve Target for store
-        const storeCode = String(row['Mã cửa hàng'] || '').trim().toUpperCase();
-        const proj = String(row.Project || '').toLowerCase();
-        
-        let storeTarget = 0;
-        const storesList = proj === 'crv' ? D?.crv?.stores : D?.stmb?.stores;
-        if (storesList) {
-          const storeObj = storesList.find((s: any) => String(s.code || '').trim().toUpperCase() === storeCode);
-          if (storeObj) {
-            storeTarget = Number(storeObj.target_full || storeObj.target || 0);
-          }
-        }
-        if (!storeTarget && row.Target !== undefined) {
-          storeTarget = Number(row.Target) || 0;
-        }
-
-        // Resolve SUP for store
-        let sup = row.Supervisor || row.Supervisor_Label || row.SUP || '';
-        if (!sup) {
-          const mapInfo = STORE_MAPPING[storeCode];
-          sup = mapInfo?.sup || (proj === 'crv' ? `Region ${row['Mã vùng']}` : 'A. Tuấn (STMB)');
-        }
-
-        const sku = row.SKU || '';
-        const qty = Number(row.Qty) || 0;
-        const price = Number(row.Giá) || 0;
-        const revenue = Number(row.AMT) || 0;
-
-        rowData.push(
-          sup,
-          sku,
-          qty,
-          price,
-          revenue,
-          storeTarget
-        );
-
-        sheetRows.push(rowData);
-      });
-
-      addSheet(wb, 'Chuyển đổi Ngang sang Dọc', sheetRows);
-
-      const fileName = `PG_Interdist_Export_Vertical_${channel}_${period}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const suffix = exportSummary && exportDetail ? 'Full' : (exportSummary ? 'Summary' : 'Detail');
+      const fileName = `PG_Interdist_Export_${channel}_${period}_${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`;
 
       XLSX.writeFile(wb, fileName);
 
@@ -1748,7 +1628,7 @@ const ExportExcelDialog = ({ open, onClose }) => {
         onClose();
       }, 300);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError(err?.message || String(err));
       setIsExporting(false);
@@ -1783,69 +1663,59 @@ const ExportExcelDialog = ({ open, onClose }) => {
         }}
       >
         <h2 style={{ marginTop: 0 }}>Xuất Excel</h2>
-        <p style={{ color: 'var(--c-text-2)' }}>
+        <p style={{ color: 'var(--c-text-2)', marginBottom: '20px' }}>
           Tải dữ liệu dashboard ra file Excel.
         </p>
 
-        <div style={{ display: 'grid', gap: '12px', margin: '20px 0' }}>
+        <div style={{ display: 'grid', gap: '12px', margin: '0 0 20px 0' }}>
+          {/* Report type checkboxes */}
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--c-text-1)', marginBottom: '8px' }}>Loại báo cáo</div>
+            <div style={{ display: 'grid', gap: '8px', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--c-border)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--c-text-1)', fontSize: '13px' }}>
+                <input
+                  type="checkbox"
+                  checked={exportSummary}
+                  onChange={e => setExportSummary(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--c-accent, #0070f3)' }}
+                />
+                Báo cáo tổng hợp (Overview + Stores)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--c-text-1)', fontSize: '13px' }}>
+                <input
+                  type="checkbox"
+                  checked={exportDetail}
+                  onChange={e => setExportDetail(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--c-accent, #0070f3)' }}
+                />
+                Dữ liệu chi tiết (Raw Data)
+                {!hasRawData && <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>(cần import Excel)</span>}
+              </label>
+            </div>
+          </div>
+
           <label>
-            Channel
-            <select value={channel} onChange={e => setChannel(e.target.value)} style={{ width: '100%', padding: '8px' }}>
-              <option value="all">All</option>
+            Kênh (Channel)
+            <select value={channel} onChange={e => setChannel(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }}>
+              <option value="all">Tất cả (CRV + STMB)</option>
               <option value="crv">CRV</option>
               <option value="stmb">STMB</option>
             </select>
           </label>
 
           <label>
-            Period
-            <select value={period} onChange={e => setPeriod(e.target.value)} style={{ width: '100%', padding: '8px' }}>
-              <option value="mtd">MTD</option>
-              <option value="weekly">Weekly</option>
+            Kỳ báo cáo (Period)
+            <select value={period} onChange={e => setPeriod(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }}>
+              <option value="mtd">MTD (Month-to-Date)</option>
+              <option value="weekly">Weekly (WTD)</option>
               <option value="fullMonth">Full Month</option>
-              <option value="custom">Tùy chọn (Custom Date Range)</option>
-            </select>
-          </label>
-
-          {period === 'custom' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <label>
-                Từ ngày (Start)
-                <input 
-                  type="date" 
-                  value={customStart} 
-                  min={dateRangeBounds.min}
-                  max={dateRangeBounds.max}
-                  onChange={e => setCustomStart(e.target.value)} 
-                  style={{ width: '100%', padding: '6px', background: 'var(--c-bg)', color: 'var(--c-text)', border: '1px solid var(--c-border)', borderRadius: '4px' }} 
-                />
-              </label>
-              <label>
-                Đến ngày (End)
-                <input 
-                  type="date" 
-                  value={customEnd} 
-                  min={dateRangeBounds.min}
-                  max={dateRangeBounds.max}
-                  onChange={e => setCustomEnd(e.target.value)} 
-                  style={{ width: '100%', padding: '6px', background: 'var(--c-bg)', color: 'var(--c-text)', border: '1px solid var(--c-border)', borderRadius: '4px' }} 
-                />
-              </label>
-            </div>
-          )}
-
-          <label>
-            Sheet
-            <select value={target} onChange={e => setTarget(e.target.value)} style={{ width: '100%', padding: '8px' }}>
-              <option value="all">Overview + Stores</option>
-              <option value="stores">Stores only</option>
             </select>
           </label>
         </div>
 
         {error && (
-          <div style={{ color: '#ef4444', marginBottom: '12px', fontSize: '13px' }}>
-            Lỗi: {error}
+          <div style={{ color: '#ef4444', marginBottom: '12px', fontSize: '13px', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.3)' }}>
+            ⚠️ {error}
           </div>
         )}
 
@@ -1854,7 +1724,7 @@ const ExportExcelDialog = ({ open, onClose }) => {
             Đóng
           </button>
           <button className="btn btn-primary" onClick={exportExcel} disabled={isExporting}>
-            {isExporting ? 'Đang xuất...' : 'Tải Excel'}
+            {isExporting ? '⏳ Đang xuất...' : '📥 Tải Excel'}
           </button>
         </div>
       </div>
