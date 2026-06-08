@@ -477,10 +477,81 @@ const App = () => {
     try {
       await supabase.auth.signOut();
       setView('dashboard');
+      setHasRealData(false);
+      setAutoLoadAttempted(false);
+      (window as any)._IMPORTED_FILES = [];
+      (window as any).INTERDIST_DATA = DEFAULT_BASELINE_DATA;
+      (window as any)._isUsingBaseline = true;
     } catch (err) {
       console.error("Error signing out:", err);
     }
   };
+
+  // Auto-load the latest admin/dev imported data after login
+  useEffect(() => {
+    if (!userProfile || autoLoadAttempted || hasRealData) return;
+    if (userProfile.role === 'pending') return;
+
+    const loadLatestImportedData = async () => {
+      setAutoLoadingData(true);
+      setAutoLoadAttempted(true);
+      try {
+        const { data: rows, error } = await supabase
+          .from('configurations')
+          .select('key, value, updated_at')
+          .like('key', 'importLog_%')
+          .order('updated_at', { ascending: false })
+          .limit(30);
+
+        if (error || !rows || rows.length === 0) {
+          setAutoLoadingData(false);
+          return;
+        }
+
+        // Find the most recent sales_data log that has files
+        const salesLog = rows.find(
+          (r: any) => r.value?.importType === 'sales_data' && r.value?.files?.length > 0
+        );
+        if (!salesLog) {
+          setAutoLoadingData(false);
+          return;
+        }
+
+        const files: any[] = salesLog.value.files;
+        const reconstructed = files.map((f: any) => {
+          const isCsv = f.name.toLowerCase().endsWith('.csv');
+          if (isCsv) {
+            return { data: f.content, name: f.name, size: f.size };
+          } else {
+            // Decode base64 -> ArrayBuffer
+            const binary = window.atob(f.content);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+            return { data: bytes.buffer, name: f.name, size: f.size };
+          }
+        });
+
+        const processed = processExcelData(reconstructed, DEFAULT_BASELINE_DATA);
+        (window as any).INTERDIST_DATA = processed;
+        (window as any)._IMPORTED_FILES = reconstructed;
+        (window as any)._isUsingBaseline = false;
+
+        const mergedName = files.length === 1
+          ? files[0].name
+          : `${files.length} tệp dữ liệu gộp`;
+        setUploadedFileName(mergedName);
+        setHasRealData(true);
+        setLogTick(prev => prev + 1);
+      } catch (err) {
+        console.error('Auto-load latest import data failed:', err);
+      } finally {
+        setAutoLoadingData(false);
+      }
+    };
+
+    loadLatestImportedData();
+  }, [userProfile, autoLoadAttempted, hasRealData]);
 
   // Filters & global routing / popup states defined at top of React component scope
   const [view, setView] = useState('dashboard');
@@ -493,6 +564,8 @@ const App = () => {
   const [hasRealData, setHasRealData] = useState(() => {
     return typeof window !== 'undefined' && !(window as any)._isUsingBaseline;
   });
+  const [autoLoadingData, setAutoLoadingData] = useState(false);
+  const [autoLoadAttempted, setAutoLoadAttempted] = useState(false);
 
   const [selectedChannels, setSelectedChannels] = useState(['crv', 'stmb']);
   const [selectedRegions, setSelectedRegions] = useState(['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG']);
@@ -1677,7 +1750,34 @@ useEffect(() => {
         </TweakSection>
       </TweaksPanel>
 
-      {(userProfile?.role === 'dev' || userProfile?.role === 'admin') && !hasRealData && (
+      {/* Auto-loading screen — shown while fetching latest imported data */}
+      {autoLoadingData && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          background: t.theme === 'light' ? 'rgba(248,250,252,0.97)' : 'rgba(15,23,42,0.97)',
+          backdropFilter: 'blur(8px)', fontFamily: 'system-ui, -apple-system, sans-serif'
+        }}>
+          <img src="https://i.ibb.co/DDQVDRbH/image.png" alt="Logo" style={{ height: '44px', marginBottom: '24px', opacity: 0.85 }} />
+          <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+            <p style={{ fontSize: '16px', fontWeight: '600', color: t.theme === 'light' ? '#0F172A' : '#F1F5F9', margin: '0 0 6px 0' }}>Đang tải dữ liệu mới nhất...</p>
+            <p style={{ fontSize: '13px', color: t.theme === 'light' ? '#64748B' : '#94A3B8', margin: 0 }}>Hệ thống đang phục hồi dữ liệu báo cáo từ lần import gần nhất</p>
+          </div>
+          {/* Animated progress bar */}
+          <div style={{ width: '260px', height: '4px', background: t.theme === 'light' ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.25)', borderRadius: '99px', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: '40%',
+              background: 'linear-gradient(90deg, #3B82F6, #6366F1)',
+              borderRadius: '99px',
+              animation: 'autoload-slide 1.2s ease-in-out infinite alternate'
+            }} />
+          </div>
+          <style>{`@keyframes autoload-slide { from { transform: translateX(-100%); } to { transform: translateX(550%); } }`}</style>
+        </div>
+      )}
+
+      {/* Import portal — only shown for admin/dev when no data exists and auto-load is done */}
+      {(userProfile?.role === 'dev' || userProfile?.role === 'admin') && !hasRealData && !autoLoadingData && autoLoadAttempted && (
         <DashboardImportPortal 
           theme={t.theme}
           canClose={false}
