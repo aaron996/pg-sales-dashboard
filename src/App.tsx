@@ -473,6 +473,20 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ─── All state declarations BEFORE any effects or handlers ───
+  const [view, setView] = useState('dashboard');
+  const [teleOpen, setTeleOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState<any>(null);
+  const [excelOpen, setExcelOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [logTick, setLogTick] = useState(0);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [hasRealData, setHasRealData] = useState(() => {
+    return typeof window !== 'undefined' && !(window as any)._isUsingBaseline;
+  });
+  const [autoLoadingData, setAutoLoadingData] = useState(false);
+  const [autoLoadAttempted, setAutoLoadAttempted] = useState(false);
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -553,19 +567,6 @@ const App = () => {
     loadLatestImportedData();
   }, [userProfile, autoLoadAttempted, hasRealData]);
 
-  // Filters & global routing / popup states defined at top of React component scope
-  const [view, setView] = useState('dashboard');
-  const [teleOpen, setTeleOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState<any>(null);
-  const [excelOpen, setExcelOpen] = useState(false);
-  const [debugOpen, setDebugOpen] = useState(false);
-  const [logTick, setLogTick] = useState(0);
-  const [uploadedFileName, setUploadedFileName] = useState("");
-  const [hasRealData, setHasRealData] = useState(() => {
-    return typeof window !== 'undefined' && !(window as any)._isUsingBaseline;
-  });
-  const [autoLoadingData, setAutoLoadingData] = useState(false);
-  const [autoLoadAttempted, setAutoLoadAttempted] = useState(false);
 
   const [selectedChannels, setSelectedChannels] = useState(['crv', 'stmb']);
   const [selectedRegions, setSelectedRegions] = useState(['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG']);
