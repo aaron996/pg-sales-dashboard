@@ -1498,7 +1498,7 @@ const ExportExcelDialog = ({ open, onClose, activeChannels = ['crv', 'stmb'], ac
       const cols = [
         'Channel', 'Mã cửa hàng', 'Tên cửa hàng', 'Mã vùng',
         'Mã nhân viên', 'Ngày báo cáo', 'Category',
-        'Item Name', 'Quantity', 'Unit Price', 'AMT', 'Project'
+        'Item Name', 'Quantity', 'Unit Price', 'AMT'
       ];
 
       const safeFormatDate = (dateVal: any) => {
@@ -1520,6 +1520,23 @@ const ExportExcelDialog = ({ open, onClose, activeChannels = ['crv', 'stmb'], ac
           return proj === 'all' ? true : p === proj;
         });
         filtered.forEach((r: any) => {
+          const rawSku = r['SKU'] || r['Item Name'] || '';
+          let cleanSku = rawSku;
+          if (rawSku) {
+            const idx = rawSku.indexOf('.');
+            if (idx !== -1) {
+              const prefix = rawSku.substring(0, idx).toUpperCase();
+              const suffix = rawSku.substring(idx + 1);
+              const knownCategories = ['HAIRCARE', 'SKINCARE', 'SHAVECARE', 'LAUNDRY', 'BVS', 'SAFEGUARD'];
+              if (knownCategories.includes(prefix)) {
+                cleanSku = suffix;
+              }
+            }
+          }
+
+          const qty = r['Qty'] !== undefined ? r['Qty'] : (r['Quantity'] !== undefined ? r['Quantity'] : 0);
+          const price = r['Giá'] !== undefined ? r['Giá'] : (r['Unit Price'] !== undefined ? r['Unit Price'] : 0);
+
           rows.push([
             r['Channel'] || (String(r.Project || '').toLowerCase() === 'crv' ? 'CRV' : 'STMB'),
             r['Mã cửa hàng'] || '',
@@ -1528,11 +1545,10 @@ const ExportExcelDialog = ({ open, onClose, activeChannels = ['crv', 'stmb'], ac
             r['Mã nhân viên'] || '',
             safeFormatDate(r['Ngày báo cáo']),
             r['Category'] || '',
-            r['Item Name'] || '',
-            fmtNum(r['Quantity']),
-            fmtNum(r['Unit Price']),
-            fmtNum(r['AMT']),
-            r['Project'] || ''
+            cleanSku,
+            fmtNum(qty),
+            fmtNum(price),
+            fmtNum(r['AMT'])
           ]);
         });
         return rows;
