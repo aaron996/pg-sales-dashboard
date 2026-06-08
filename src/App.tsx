@@ -1654,9 +1654,16 @@ useEffect(() => {
       </main>
     </div>
 
-    <TelegramComposer open={teleOpen} onClose={() => setTeleOpen(false)} project={selectedChannels.length === 1 ? selectedChannels[0] : 'stmb'} pdata={M.raw[selectedChannels.length === 1 ? selectedChannels[0] : 'stmb']} />
-      <ExportReport open={!!exportOpen} project={exportOpen} pdata={exportOpen ? M.raw[exportOpen] : null} onClose={() => setExportOpen(null)} onPrint={() => handlePrintPDF(exportOpen)} />
-      <ExportExcelDialog open={excelOpen} onClose={() => setExcelOpen(false)} />
+      <TelegramComposer open={teleOpen} onClose={() => setTeleOpen(false)} project={selectedChannels.length === 1 ? selectedChannels[0] : 'stmb'} pdata={M.raw[selectedChannels.length === 1 ? selectedChannels[0] : 'stmb']} />
+      {/* ExportReport temporarily archived — see src/archives/placeholder-components.tsx */}
+      {/* <ExportReport open={!!exportOpen} project={exportOpen} pdata={exportOpen ? M.raw[exportOpen] : null} onClose={() => setExportOpen(null)} onPrint={() => handlePrintPDF(exportOpen)} /> */}
+      <ExportExcelDialog
+        open={excelOpen}
+        onClose={() => setExcelOpen(false)}
+        activeChannels={selectedChannels}
+        activeRegions={selectedRegions}
+        activePeriod={period}
+      />
       <BADrawer ba={selectedBA} onClose={() => setSelectedBA(null)} />
       <DashboardDebugConsole open={debugOpen} onClose={() => setDebugOpen(false)} onOpen={() => setDebugOpen(true)} excelOpen={excelOpen} setExcelOpen={setExcelOpen} />
 
@@ -1710,18 +1717,14 @@ const DashboardInfoPanel = () => {
             </div>
             <div className="info-row-detail">
               <span className="info-label-text">Phiên bản:</span>
-              <span className="info-val-text badge-version mono">v2.5.0</span>
+              <span className="info-val-text badge-version mono">v3.0.0</span>
             </div>
             <div className="info-row-detail">
               <span className="info-label-text">Cập nhật cuối:</span>
-              <span className="info-val-text mono">24/05/2026</span>
+              <span className="info-val-text mono">08/06/2026</span>
             </div>
             <div className="info-row-detail">
               <span className="info-label-text">Bản quyền & Phát triển:</span>
-              <span className="info-val-text">Interdist Ops Team</span>
-            </div>
-            <div className="info-row-detail">
-              <span className="info-label-text">Chuyên gia thiết kế:</span>
               <span className="info-val-text font-bold" style={{ fontWeight: '700' }}>Lương Thế Vinh</span>
             </div>
             <div className="info-row-detail">
@@ -1737,13 +1740,31 @@ const DashboardInfoPanel = () => {
         </div>
 
         <div className="info-features">
-          <h3 className="info-subtitle">Các tính năng cao cấp đã tích hợp:</h3>
+          <h3 className="info-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '15px' }}>🕐</span> Latest Updates
+            <span className="badge-version mono" style={{ fontSize: '11px', padding: '2px 8px', marginLeft: '4px' }}>v3.0.0 · 08/06/2026</span>
+          </h3>
           <ul className="info-feature-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', listStyle: 'none', padding: 0, margin: 0 }}>
-            <li style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>✨ <span><b>Giao diện Morphing Sticky Header:</b> Tự động co giãn và thu gọn bộ lọc thông minh khi cuộn trang.</span></li>
-            <li style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>🌓 <span><b>Hệ thống Light/Dark Mode thông minh:</b> Chuyển đổi nhanh qua biểu tượng Sun/Moon trên tiêu đề.</span></li>
-            <li style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>📊 <span><b>Biểu đồ tương thích Responsive:</b> Trend Chart vẽ bằng SVG tự động điều chỉnh tỷ lệ khung hình.</span></li>
-            <li style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>⚡ <span><b>Cuộn & Highlight Store tự động:</b> Tìm kiếm nhanh store kém nhất và định vị ngay lập tức.</span></li>
-            <li style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>📬 <span><b>Tích hợp Telegram Bot Composer:</b> Soạn thảo tin nhắn khẩn cấp gửi alert nhanh chóng.</span></li>
+            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.15)' }}>
+              <span style={{ minWidth: '20px', color: '#22c55e', fontWeight: 700 }}>✦</span>
+              <span><b style={{ color: 'var(--c-text-1)' }}>Export Excel theo filter đang chọn:</b> Tải Excel tự động phản chiếu đúng kênh, vùng, kỳ mà người dùng đang xem.</span>
+            </li>
+            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.15)' }}>
+              <span style={{ minWidth: '20px', color: '#6366f1', fontWeight: 700 }}>✦</span>
+              <span><b style={{ color: 'var(--c-text-1)' }}>Import Portal toàn màn hình:</b> Cổng nhập dữ liệu hiển thị trực tiếp khi chưa có data, hỗ trợ multi-file merge và log audit.</span>
+            </li>
+            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(14,165,233,0.07)', border: '1px solid rgba(14,165,233,0.15)' }}>
+              <span style={{ minWidth: '20px', color: '#0ea5e9', fontWeight: 700 }}>✦</span>
+              <span><b style={{ color: 'var(--c-text-1)' }}>Auth & User Management:</b> Supabase login, phân quyền dev/admin/user/pending, quản lý tài khoản inline.</span>
+            </li>
+            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.15)' }}>
+              <span style={{ minWidth: '20px', color: '#f97316', fontWeight: 700 }}>✦</span>
+              <span><b style={{ color: 'var(--c-text-1)' }}>Custom Date Range:</b> Bộ lọc tùy chọn khoảng ngày, tự động tính target theo tỷ lệ ngày chọn / tổng ngày tháng.</span>
+            </li>
+            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(168,85,247,0.07)', border: '1px solid rgba(168,85,247,0.15)' }}>
+              <span style={{ minWidth: '20px', color: '#a855f7', fontWeight: 700 }}>✦</span>
+              <span><b style={{ color: 'var(--c-text-1)' }}>Telegram Bot Composer:</b> Soạn thảo & gửi alert trực tiếp từ dashboard, auto-format nội dung báo cáo.</span>
+            </li>
           </ul>
         </div>
       </div>

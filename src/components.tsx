@@ -1373,10 +1373,8 @@ const ExportReport = ({ open, project, pdata, onClose, onPrint }) => {
 
 // --- Component Source: export-excel.jsx ---
 /* === Clean Excel Export Dialog === */
-const ExportExcelDialog = ({ open, onClose }) => {
+const ExportExcelDialog = ({ open, onClose, activeChannels = ['crv', 'stmb'], activeRegions = [], activePeriod = 'mtd' }: any) => {
   // NOTE: This component intentionally shadows the name to re-export to window below
-  const [channel, setChannel] = React.useState('all');
-  const [period, setPeriod] = React.useState('mtd');
   const [isExporting, setIsExporting] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -1409,6 +1407,10 @@ const ExportExcelDialog = ({ open, onClose }) => {
   };
 
   const hasRawData = !!(D?.tables_data?.raw_rows?.length || D?.rawRows?.length);
+
+  // Derive channel string from activeChannels prop
+  const channel = activeChannels.length === 2 ? 'all' : (activeChannels[0] || 'all');
+  const period = activePeriod;
 
   const dateRangeBounds = React.useMemo(() => {
     let flatRawRows: any[] = [];
@@ -1561,6 +1563,11 @@ const ExportExcelDialog = ({ open, onClose }) => {
 
   if (!open) return null;
 
+  const periodLabel: Record<string, string> = {
+    mtd: 'Luỹ kế (MTD)', weekly: 'Tuần (WTD)', fullMonth: 'Tháng đầy đủ', shifts: 'Ca làm', custom: 'Tùy chọn'
+  };
+  const channelLabel = channel === 'all' ? 'CRV + STMB' : channel.toUpperCase();
+
   return (
     <div
       className="tele-overlay"
@@ -1581,43 +1588,33 @@ const ExportExcelDialog = ({ open, onClose }) => {
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '520px',
+          maxWidth: '480px',
           padding: '28px',
           borderRadius: '20px',
           background: 'var(--c-surface)',
           border: '1px solid var(--c-border)'
         }}
       >
-        <h2 style={{ marginTop: 0 }}>Xuất Excel</h2>
-        <p style={{ color: 'var(--c-text-2)', marginBottom: '20px' }}>
-          Tải dữ liệu chi tiết (Raw Data) ra file Excel.
+        <h2 style={{ marginTop: 0, marginBottom: '8px' }}>📥 Xuất Excel</h2>
+        <p style={{ color: 'var(--c-text-2)', marginBottom: '18px', fontSize: '13.5px' }}>
+          File Excel sẽ xuất theo đúng bộ lọc bạn đang chọn trên dashboard.
         </p>
+
+        {/* Active filters summary */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '18px', padding: '12px', borderRadius: '10px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
+          <span style={{ fontSize: '11px', color: 'var(--c-text-3)', width: '100%', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filter đang áp dụng</span>
+          <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '20px', background: 'rgba(99,102,241,0.12)', color: '#6366f1', fontWeight: 600 }}>📡 {channelLabel}</span>
+          <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '20px', background: 'rgba(14,165,233,0.12)', color: '#0ea5e9', fontWeight: 600 }}>📅 {periodLabel[period] || period}</span>
+          {activeRegions.length > 0 && activeRegions.length < 6 && (
+            <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '20px', background: 'rgba(249,115,22,0.12)', color: '#f97316', fontWeight: 600 }}>🗺 {activeRegions.join(', ')}</span>
+          )}
+        </div>
 
         {!hasRawData && (
           <div style={{ color: '#ef4444', marginBottom: '16px', fontSize: '13px', padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
-            ⚠️ Bạn chưa import data
+            ⚠️ Bạn chưa import data. Vui lòng import file Excel báo cáo trước.
           </div>
         )}
-
-        <div style={{ display: 'grid', gap: '12px', margin: '0 0 20px 0' }}>
-          <label>
-            Kênh (Channel)
-            <select value={channel} onChange={e => setChannel(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }}>
-              <option value="all">Tất cả (CRV + STMB)</option>
-              <option value="crv">CRV</option>
-              <option value="stmb">STMB</option>
-            </select>
-          </label>
-
-          <label>
-            Kỳ báo cáo (Period)
-            <select value={period} onChange={e => setPeriod(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }}>
-              <option value="mtd">MTD (Month-to-Date)</option>
-              <option value="weekly">Weekly (WTD)</option>
-              <option value="fullMonth">Full Month</option>
-            </select>
-          </label>
-        </div>
 
         {error && (
           <div style={{ color: '#ef4444', marginBottom: '12px', fontSize: '13px', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.3)' }}>

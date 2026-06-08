@@ -185,3 +185,84 @@ export const ExportReportTelegramButtonPlaceholder = () => {
     <button className="btn btn-secondary">📨 Gửi qua Telegram [MOCK]</button>
   );
 };
+
+
+// ==========================================
+// 4. EXPORT REPORT (PDF REPORT DIALOG) — ARCHIVED 08/06/2026
+// ==========================================
+// Tạm ẩn khỏi UI chính. Được gọi qua setExportOpen trong App.tsx.
+// Để kích hoạt lại: bỏ comment ExportReport trong App.tsx dòng ~1612
+
+const fmtVNDfullLocal = (v: number) => {
+  if (!v) return '0 đ';
+  return v.toLocaleString('vi-VN') + ' đ';
+};
+
+const catLabelLocal = (k: string) => {
+  const m: Record<string, string> = {
+    HAIRCARE: 'Hair Care', SHAVECARE: 'Shave Care', SKINCARE: 'Skin Care', LAUNDRY: 'Laundry',
+  };
+  return m[k] || k;
+};
+
+export const ExportReportArchived = ({ open, project, pdata, onClose, onPrint }: any) => {
+  if (!open) return null;
+  const isCRV = project === 'crv';
+  const title = isCRV ? 'CRV BA Long Term' : 'STMB';
+  const totalRev = pdata.total.actual;
+  const target   = pdata.total.target;
+  const pct = pdata.total.pct;
+  const timegone = pdata.meta.timegone;
+  const stores = [...pdata.stores].sort((a: any, b: any) => b.pct - a.pct);
+  const onTrack = stores.filter((s: any) => s.pct >= timegone).length;
+  const below70 = stores.filter((s: any) => s.pct < timegone * 0.7).length;
+
+  return (
+    <div className="tele-overlay" onClick={onClose}>
+      <div className="report-modal" id="printable-report" onClick={(e) => e.stopPropagation()}>
+        <div className="report-head">
+          <div>
+            <div className="report-eyebrow mono">INTERDIST · P&G · {title.toUpperCase()}</div>
+            <div className="report-title">Báo cáo Hiệu suất Kênh {title}</div>
+            <div className="report-sub">Chu kỳ {pdata.meta.start_day} — {pdata.meta.end_day} · Updated {pdata.meta.updated_to}</div>
+          </div>
+          <button className="tele-close no-print" onClick={onClose}>✕</button>
+        </div>
+        <div className="report-body">
+          <div className="report-cover">
+            <div className="report-cover-main">
+              <div className="report-cover-label mono">ACTUAL SO</div>
+              <div className="report-cover-val mono">{fmtVNDfullLocal(totalRev)} <span>VNĐ</span></div>
+              <div className="report-cover-tgt mono">/ {fmtVNDfullLocal(target)} target</div>
+            </div>
+            <div className="report-cover-side">
+              <div className="report-cover-stat">
+                <div className="mono">{pct.toFixed(1)}%</div>
+                <div>%Ach Full Month</div>
+              </div>
+              <div className="report-cover-stat">
+                <div className="mono">{stores.length}</div>
+                <div>điểm bán active</div>
+              </div>
+              <div className="report-cover-stat">
+                <div className="mono">{onTrack}</div>
+                <div>on-track ≥ {timegone.toFixed(0)}%</div>
+              </div>
+              <div className="report-cover-stat">
+                <div className="mono" style={{ color: 'var(--c-bad)' }}>{below70}</div>
+                <div>dưới {(timegone * 0.7).toFixed(0)}%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="report-foot no-print">
+          <div className="report-foot-info mono">Báo cáo tự sinh · Interdist Analytics v3.0</div>
+          <div className="tele-foot-actions">
+            <button className="btn btn-ghost" onClick={onClose}>Đóng</button>
+            <button className="btn btn-primary" onClick={onPrint}>⬇ Tải PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
