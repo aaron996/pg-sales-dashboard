@@ -1899,7 +1899,25 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
           <div className="panel-head-tools">
             <div className="search">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-              <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Tìm store, code..." />
+              <input
+                value={search}
+                onChange={e => onSearch(e.target.value)}
+                placeholder="Tìm store, code..."
+                aria-label="Tìm kiếm cửa hàng"
+              />
+              {search && (
+                <button
+                  onClick={() => onSearch('')}
+                  title="Xóa tìm kiếm"
+                  aria-label="Xóa tìm kiếm"
+                  className="flex items-center justify-center p-0.5 rounded cursor-pointer text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         )}
