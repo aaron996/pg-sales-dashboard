@@ -85,7 +85,7 @@ export const LoginScreen: React.FC<{ onAuthSuccess: (u: SupabaseUser, profile: U
 
 export const PendingApprovalScreen: React.FC<{ user: SupabaseUser, profile: UserProfile, onLogout: () => void }> = ({ user, profile, onLogout }) => {
   return (
-    <div className="login-screen-container">
+    <div className="login-container">
       <div className="login-card" style={{ maxWidth: '440px', textAlign: 'center' }}>
         <div className="login-logo-circle" style={{ background: '#fef3c7', color: '#d97706', margin: '0 auto 16px' }}>
           <Shield size={28} />
