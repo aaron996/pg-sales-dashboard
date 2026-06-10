@@ -13,6 +13,8 @@ import {
   TrendChart, TelegramComposer, ExportReport, ExportExcelDialog, DashboardImportPortal,
   useTweaks, TweaksPanel, TweakSection, TweakRadio
 } from './components';
+import { RegionFilter, ALL_REGIONS } from './components/RegionFilter';
+import { ChannelFilter } from './components/ChannelFilter';
 import ConfigurePanel, { loadSystemConfigurations } from './components/ConfigurePanel';
 
 // Initialize global INTERDIST_DATA safe for IDX
@@ -570,7 +572,7 @@ const App = () => {
 
 
   const [selectedChannels, setSelectedChannels] = useState(['crv', 'stmb']);
-  const [selectedRegions, setSelectedRegions] = useState(['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG']);
+  const [selectedRegions, setSelectedRegions] = useState(ALL_REGIONS);
   const [periodTab, setPeriodTab] = useState('mtd'); // 'weekly', 'fullMonth', 'mtd', 'shifts'
 
   // Custom date range states
@@ -627,7 +629,6 @@ const App = () => {
   // Sticky header and dropdown open states
   const [isSticky, setIsSticky] = useState(false);
   const [channelOpen, setChannelOpen] = useState(false);
-  const [regionOpen, setRegionOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [scrollToStoreId, setScrollToStoreId] = useState(null);
@@ -655,7 +656,6 @@ const App = () => {
     const handleOutsideClick = (e) => {
       if (!e.target.closest('.filter-dropdown') && !e.target.closest('.daterange-dropdown') && !e.target.closest('.daterange-picker-container')) {
         setChannelOpen(false);
-        setRegionOpen(false);
         setPeriodOpen(false);
       }
     };
@@ -684,13 +684,6 @@ const App = () => {
     if (selectedChannels.length === 1) return selectedChannels[0].toUpperCase();
     return 'Chọn kênh';
   }, [selectedChannels]);
-
-  const regionLabel = useMemo(() => {
-    if (selectedRegions.length === 6) return 'Tất cả';
-    if (selectedRegions.length === 0) return 'Chọn vùng';
-    if (selectedRegions.length <= 2) return selectedRegions.join(', ');
-    return `${selectedRegions.length} vùng`;
-  }, [selectedRegions]);
 
   const periodLabel = useMemo(() => {
     const map = {
@@ -1227,60 +1220,15 @@ useEffect(() => {
             </div>
             
             <div className="sticky-middle">
-              {/* Channel Dropdown */}
-              <div className="filter-dropdown">
-                <button className={`dropdown-trigger ${channelOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setChannelOpen(!channelOpen); setRegionOpen(false); setPeriodOpen(false); }}>
-                  <span className="dropdown-label-title">Kênh:</span>
-                  <span className="dropdown-label-value">{channelLabel}</span>
-                  <svg className="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                {channelOpen && (
-                  <div className="dropdown-menu">
-                    <div className="dropdown-item" onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedChannels(c => c.includes('crv') ? c.filter(x => x !== 'crv') : [...c, 'crv']);
-                    }}>
-                      <input type="checkbox" checked={selectedChannels.includes('crv')} readOnly />
-                      <span className="dot" style={{ background: 'var(--c-crv)', width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block', marginRight: '6px' }} />
-                      <span>CRV</span>
-                    </div>
-                    <div className="dropdown-item" onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedChannels(c => c.includes('stmb') ? c.filter(x => x !== 'stmb') : [...c, 'stmb']);
-                    }}>
-                      <input type="checkbox" checked={selectedChannels.includes('stmb')} readOnly />
-                      <span className="dot" style={{ background: 'var(--c-stmb)', width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block', marginRight: '6px' }} />
-                      <span>STMB</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Region Dropdown */}
-              <div className="filter-dropdown">
-                <button className={`dropdown-trigger ${regionOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setRegionOpen(!regionOpen); setChannelOpen(false); setPeriodOpen(false); }}>
-                  <span className="dropdown-label-title">Vùng:</span>
-                  <span className="dropdown-label-value">{regionLabel}</span>
-                  <svg className="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                {regionOpen && (
-                  <div className="dropdown-menu scrollable">
-                    {['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG'].map(r => (
-                      <div key={r} className="dropdown-item" onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedRegions(rr => rr.includes(r) ? rr.filter(x => x !== r) : [...rr, r]);
-                      }}>
-                        <input type="checkbox" checked={selectedRegions.includes(r)} readOnly />
-                        <span>{r}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {/* Channel + Region combined pill */}
+              <div className="filter-group filter-group--combined">
+                <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
+                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
               </div>
 
               {/* Period Dropdown */}
               <div className="filter-dropdown">
-                <button className={`dropdown-trigger ${periodOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setPeriodOpen(!periodOpen); setChannelOpen(false); setRegionOpen(false); }}>
+                <button className={`dropdown-trigger ${periodOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setPeriodOpen(!periodOpen); setChannelOpen(false); }}>
                   <span className="dropdown-label-title">Kỳ:</span>
                   <span className="dropdown-label-value">{periodLabel}</span>
                   <svg className="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -1349,25 +1297,9 @@ useEffect(() => {
 
           {view !== 'admin_users' && view !== 'configure' && (
             <div className="filterbar anim-rise" style={{ animationDelay: '120ms' }}>
-              <div className="filter-group">
-                <span className="filter-label mono">CHANNEL</span>
-                <Chip active={selectedChannels.includes('crv')} onClick={() => setSelectedChannels(c => c.includes('crv') ? c.filter(x => x !== 'crv') : [...c, 'crv'])}>
-                  <span className="dot" style={{ background: 'var(--c-crv)' }} />CRV
-                </Chip>
-                <Chip active={selectedChannels.includes('stmb')} onClick={() => setSelectedChannels(c => c.includes('stmb') ? c.filter(x => x !== 'stmb') : [...c, 'stmb'])}>
-                  <span className="dot" style={{ background: 'var(--c-stmb)' }} />STMB
-                </Chip>
-              </div>
-
-              <div className="filter-divider" />
-
-              <div className="filter-group">
-                <span className="filter-label mono">REGION</span>
-                {['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG'].map(r => (
-                  <Chip key={r} active={selectedRegions.includes(r)} onClick={() => setSelectedRegions(rr => rr.includes(r) ? rr.filter(x => x !== r) : [...rr, r])}>
-                    {r}
-                  </Chip>
-                ))}
+              <div className="filter-group filter-group--combined">
+                <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
+                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
               </div>
 
               <div className="filter-divider" />
