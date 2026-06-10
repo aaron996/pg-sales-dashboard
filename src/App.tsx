@@ -1205,9 +1205,8 @@ useEffect(() => {
         <div className="sidebar-foot">
           <div className="status-line">
             <span className="status-dot" />
-            <span className="mono">SYNC · {M.raw.crv?.meta?.updated_to || M.raw.stmb?.meta?.updated_to || "---"}</span>
+            <span className="mono">Đã đồng bộ</span>
           </div>
-          <div className="status-source mono">SAP → Snowflake → Dashboard</div>
         </div>
       </aside>
 
@@ -1279,7 +1278,7 @@ useEffect(() => {
               <div className="topbar-left">
                 <div className="topbar-eyebrow-row">
                   <img className="topbar-mobile-logo" src="https://i.ibb.co/DDQVDRbH/image.png" alt="Interdist Logo" />
-                  <div className="topbar-eyebrow mono">PERIOD · {M.raw.crv?.meta?.start_day || M.raw.stmb?.meta?.start_day || "---"} → {M.raw.crv?.meta?.end_day || M.raw.stmb?.meta?.end_day || "---"} · UPDATED {M.raw.crv?.meta?.updated_to || M.raw.stmb?.meta?.updated_to || "---"}</div>
+                  <div className="topbar-eyebrow mono">DỮ LIỆU · {M.raw.crv?.meta?.start_day || M.raw.stmb?.meta?.start_day || "---"} → {M.raw.crv?.meta?.updated_to || M.raw.stmb?.meta?.updated_to || "---"}</div>
                 </div>
                 <h1 className="topbar-title">Báo cáo Bán hàng dự án P&G</h1>
               </div>
@@ -1732,75 +1731,66 @@ useEffect(() => {
 };
 
 const DashboardInfoPanel = () => {
+  const changelog = [
+    { version: 'v3.2.0', date: '10/06/2026', items: [
+      'Bộ lọc Channel + Region gộp thành một pill duy nhất trên cả filterbar và sticky header.',
+      'Nút xuất/tải mẫu cấu hình tách thành từng loại: Bảng giá · SUP · Target.',
+      'Cấu trúc file Target cập nhật chuẩn mới: Date, Store_id, Store_name, Category, SUP, Target, Project.',
+      'Thông báo "dưới 30% target" ẩn khỏi admin/user, chỉ hiển thị cho dev.',
+    ]},
+    { version: 'v3.1.0', date: '08/06/2026', items: [
+      'Export Excel phản chiếu đúng kênh, vùng, kỳ đang xem.',
+      'Auth & phân quyền dev / admin / user / pending qua Supabase.',
+      'Bộ lọc ngày tùy chọn, tự tính target tỷ lệ theo số ngày chọn.',
+    ]},
+    { version: 'v3.0.0', date: '01/06/2026', items: [
+      'Import Portal toàn màn hình, multi-file merge, log audit.',
+      'Telegram Bot Composer — soạn & gửi alert trực tiếp từ dashboard.',
+      'Dark mode, Custom Date Range, Animated KPIs.',
+    ]},
+  ];
+
   return (
-    <section className="panel panel-info anim-rise" style={{ animationDelay: '50ms', maxWidth: '800px', margin: '20px auto' }}>
-      <div className="panel-head info-header">
-        <div className="info-title-group">
-          <div className="panel-eyebrow mono">SYSTEM INFORMATION</div>
-          <h2 className="panel-title">Thông tin hệ thống Dashboard</h2>
-        </div>
+    <section className="panel panel-info anim-rise" style={{ animationDelay: '50ms', maxWidth: '720px', margin: '20px auto' }}>
+      <div className="panel-head">
+        <div className="panel-eyebrow mono">SYSTEM INFORMATION</div>
+        <h2 className="panel-title">Thông tin hệ thống</h2>
       </div>
-      <div className="info-body">
-        <div className="info-card">
-          <div className="info-logo-wrap">
-            <img src="https://i.ibb.co/DDQVDRbH/image.png" alt="Interdist Logo" className="info-logo" />
-          </div>
-          <div className="info-details">
-            <div className="info-row-detail">
-              <span className="info-label-text">Tên hệ thống:</span>
-              <span className="info-val-text font-bold" style={{ fontWeight: '700' }}>P&G Sales Operations Dashboard</span>
-            </div>
-            <div className="info-row-detail">
-              <span className="info-label-text">Phiên bản:</span>
-              <span className="info-val-text badge-version mono">v3.0.0</span>
-            </div>
-            <div className="info-row-detail">
-              <span className="info-label-text">Cập nhật cuối:</span>
-              <span className="info-val-text mono">08/06/2026</span>
-            </div>
-            <div className="info-row-detail">
-              <span className="info-label-text">Bản quyền & Phát triển:</span>
-              <span className="info-val-text font-bold" style={{ fontWeight: '700' }}>Lương Thế Vinh</span>
-            </div>
-            <div className="info-row-detail">
-              <span className="info-label-text">Liên hệ hỗ trợ:</span>
-              <span className="info-val-text">
-                <a href="mailto:luongthevinh996@gmail.com" className="info-link mono">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '4px', verticalAlign: 'middle' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                  luongthevinh996@gmail.com
-                </a>
-              </span>
+
+      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+        {/* Identity block */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '20px', borderBottom: '1px solid var(--c-border)' }}>
+          <img src="https://i.ibb.co/DDQVDRbH/image.png" alt="Logo" style={{ width: '40px', height: '40px', borderRadius: '8px', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--c-text-1)' }}>P&G Sales Operations Dashboard</div>
+            <div style={{ fontSize: '12px', color: 'var(--c-text-3)', marginTop: '2px' }}>
+              Lương Thế Vinh ·{' '}
+              <a href="mailto:luongthevinh996@gmail.com" style={{ color: 'var(--c-accent)', textDecoration: 'none' }}>luongthevinh996@gmail.com</a>
             </div>
           </div>
+          <span className="badge-version mono" style={{ fontSize: '11px', padding: '3px 8px', flexShrink: 0 }}>v3.2.0</span>
         </div>
 
-        <div className="info-features">
-          <h3 className="info-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '15px' }}>🕐</span> Latest Updates
-            <span className="badge-version mono" style={{ fontSize: '11px', padding: '2px 8px', marginLeft: '4px' }}>v3.0.0 · 08/06/2026</span>
-          </h3>
-          <ul className="info-feature-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', listStyle: 'none', padding: 0, margin: 0 }}>
-            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.15)' }}>
-              <span style={{ minWidth: '20px', color: '#22c55e', fontWeight: 700 }}>✦</span>
-              <span><b style={{ color: 'var(--c-text-1)' }}>Export Excel theo filter đang chọn:</b> Tải Excel tự động phản chiếu đúng kênh, vùng, kỳ mà người dùng đang xem.</span>
-            </li>
-            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.15)' }}>
-              <span style={{ minWidth: '20px', color: '#6366f1', fontWeight: 700 }}>✦</span>
-              <span><b style={{ color: 'var(--c-text-1)' }}>Import Portal toàn màn hình:</b> Cổng nhập dữ liệu hiển thị trực tiếp khi chưa có data, hỗ trợ multi-file merge và log audit.</span>
-            </li>
-            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(14,165,233,0.07)', border: '1px solid rgba(14,165,233,0.15)' }}>
-              <span style={{ minWidth: '20px', color: '#0ea5e9', fontWeight: 700 }}>✦</span>
-              <span><b style={{ color: 'var(--c-text-1)' }}>Auth & User Management:</b> Supabase login, phân quyền dev/admin/user/pending, quản lý tài khoản inline.</span>
-            </li>
-            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.15)' }}>
-              <span style={{ minWidth: '20px', color: '#f97316', fontWeight: 700 }}>✦</span>
-              <span><b style={{ color: 'var(--c-text-1)' }}>Custom Date Range:</b> Bộ lọc tùy chọn khoảng ngày, tự động tính target theo tỷ lệ ngày chọn / tổng ngày tháng.</span>
-            </li>
-            <li style={{ display: 'flex', gap: '10px', fontSize: '13px', alignItems: 'flex-start', padding: '10px 12px', borderRadius: '8px', background: 'rgba(168,85,247,0.07)', border: '1px solid rgba(168,85,247,0.15)' }}>
-              <span style={{ minWidth: '20px', color: '#a855f7', fontWeight: 700 }}>✦</span>
-              <span><b style={{ color: 'var(--c-text-1)' }}>Telegram Bot Composer:</b> Soạn thảo & gửi alert trực tiếp từ dashboard, auto-format nội dung báo cáo.</span>
-            </li>
-          </ul>
+        {/* Changelog */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {changelog.map((release, ri) => (
+            <div key={release.version}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <span className="mono" style={{ fontSize: '11px', fontWeight: 700, color: ri === 0 ? 'var(--c-accent)' : 'var(--c-text-3)', background: ri === 0 ? 'rgba(10,66,155,0.08)' : 'var(--c-bg-2)', padding: '2px 8px', borderRadius: '4px', border: `1px solid ${ri === 0 ? 'rgba(10,66,155,0.2)' : 'var(--c-border)'}` }}>{release.version}</span>
+                <span style={{ fontSize: '11px', color: 'var(--c-text-3)' }}>{release.date}</span>
+                {ri === 0 && <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--c-accent)', background: 'rgba(10,66,155,0.08)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(10,66,155,0.2)' }}>LATEST</span>}
+              </div>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {release.items.map((item, ii) => (
+                  <li key={ii} style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--c-text-2)', lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--c-text-3)', flexShrink: 0, marginTop: '1px' }}>—</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
     </section>

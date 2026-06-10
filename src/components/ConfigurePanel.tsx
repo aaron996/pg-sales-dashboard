@@ -1675,25 +1675,6 @@ export default function ConfigurePanel({ onConfigChanged, interdistData, userPro
                 </div>
               )}
 
-              {/* Informative tutorial notes - Cohesive styling */}
-              <div className="config-alert-card">
-                <h4 className="config-alert-card-title">
-                  <AlertCircle size={18} /> 
-                  HƯỚNG DẪN QUẢN TRỊ DỮ LIỆU CỐ ĐỊNH PHIÊN LÀM VIỆC
-                </h4>
-                <p className="config-alert-card-desc">
-                  Mọi tùy chỉnh hoặc tệp Excel nhập vào bảng điều khiển được đồng bộ trực tuyến vào <strong>cơ sở dữ liệu Supabase Cloud</strong> liên kết với tài khoản làm việc của bạn.
-                </p>
-                <div style={{ borderTop: '1px solid rgba(245, 158, 11, 0.15)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <p style={{ margin: 0, fontWeight: 'bold', color: '#b45309', fontSize: '12px' }}>
-                    Lợi ích cốt lõi của việc này:
-                  </p>
-                  <ul className="config-alert-card-list">
-                    <li><strong>Cố định dữ liệu:</strong> Cấu hình (đơn giá sản phẩm, giám sát vùng, target) không bị biến mất khi dọn dẹp bộ nhớ đệm (Clear cache) hay khi đóng trình duyệt.</li>
-                    <li><strong>Độc lập tải dữ liệu:</strong> Khi bạn tải lên tệp tin Excel số PG mới hàng tuần từ cổng quản trị chính, các quy tắc đơn giá và Ánh xạ SUP trên Cloud vẫn tự động áp dụng chính xác cho file mới mà không cần thiết lập lại từ đầu!</li>
-                  </ul>
-                </div>
-              </div>
             </div>
           )}
 
