@@ -14,6 +14,7 @@ import {
   useTweaks, TweaksPanel, TweakSection, TweakRadio
 } from './components';
 import { RegionFilter, ALL_REGIONS } from './components/RegionFilter';
+import { ChannelFilter } from './components/ChannelFilter';
 import ConfigurePanel, { loadSystemConfigurations } from './components/ConfigurePanel';
 
 // Initialize global INTERDIST_DATA safe for IDX
@@ -1322,21 +1323,9 @@ useEffect(() => {
 
           {view !== 'admin_users' && view !== 'configure' && (
             <div className="filterbar anim-rise" style={{ animationDelay: '120ms' }}>
-              <div className="filter-group">
-                <span className="filter-label mono">CHANNEL</span>
-                <Chip active={selectedChannels.includes('crv')} onClick={() => setSelectedChannels(c => c.includes('crv') ? c.filter(x => x !== 'crv') : [...c, 'crv'])}>
-                  <span className="dot" style={{ background: 'var(--c-crv)' }} />CRV
-                </Chip>
-                <Chip active={selectedChannels.includes('stmb')} onClick={() => setSelectedChannels(c => c.includes('stmb') ? c.filter(x => x !== 'stmb') : [...c, 'stmb'])}>
-                  <span className="dot" style={{ background: 'var(--c-stmb)' }} />STMB
-                </Chip>
-              </div>
-
-              <div className="filter-divider" />
-
-              <div className="filter-group">
-                <span className="filter-label mono">REGION</span>
-                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} showTitle={false} />
+              <div className="filter-group filter-group--combined">
+                <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
+                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
               </div>
 
               <div className="filter-divider" />
