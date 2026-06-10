@@ -1700,6 +1700,42 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   height: 12px;
 }
 
+.filter-group--combined {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  overflow: visible;
+  padding: 2px;
+}
+
+.filter-group--combined .filter-dropdown {
+  max-width: none;
+  flex: 1;
+}
+
+.filter-group--combined .filter-dropdown:first-child .dropdown-trigger {
+  border-right: 1px solid var(--c-border);
+  border-radius: 6px 0 0 6px;
+}
+
+.filter-group--combined .filter-dropdown:last-child .dropdown-trigger {
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+}
+
+.filter-group--combined .dropdown-trigger {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.filter-group--combined .dropdown-trigger:hover {
+  background: var(--c-surface-2);
+}
+
 .filter-dropdown {
   position: relative;
   display: inline-block;
