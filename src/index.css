@@ -1705,10 +1705,10 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   align-items: center;
   gap: 0;
   background: var(--c-bg-2);
-  border: 1px solid var(--c-border);
+  border: 1.5px solid var(--c-border);
   border-radius: 8px;
   overflow: visible;
-  padding: 2px;
+  padding: 0;
 }
 
 .filter-group--combined .filter-dropdown {
@@ -1718,12 +1718,11 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 
 .filter-group--combined .filter-dropdown:first-child .dropdown-trigger {
   border-right: 1px solid var(--c-border);
-  border-radius: 6px 0 0 6px;
+  border-radius: 7px 0 0 7px;
 }
 
 .filter-group--combined .filter-dropdown:last-child .dropdown-trigger {
-  border-left: none;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 7px 7px 0;
 }
 
 .filter-group--combined .dropdown-trigger {
@@ -1734,6 +1733,12 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 
 .filter-group--combined .dropdown-trigger:hover {
   background: var(--c-surface-2);
+}
+
+.filter-group--combined .dropdown-trigger.open {
+  background: var(--c-surface-2);
+  border: none;
+  box-shadow: none;
 }
 
 .filter-dropdown {

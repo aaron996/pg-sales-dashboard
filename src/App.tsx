@@ -1220,37 +1220,11 @@ useEffect(() => {
             </div>
             
             <div className="sticky-middle">
-              {/* Channel Dropdown */}
-              <div className="filter-dropdown">
-                <button className={`dropdown-trigger ${channelOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setChannelOpen(!channelOpen); setPeriodOpen(false); }}>
-                  <span className="dropdown-label-title">Kênh:</span>
-                  <span className="dropdown-label-value">{channelLabel}</span>
-                  <svg className="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                {channelOpen && (
-                  <div className="dropdown-menu">
-                    <div className="dropdown-item" onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedChannels(c => c.includes('crv') ? c.filter(x => x !== 'crv') : [...c, 'crv']);
-                    }}>
-                      <input type="checkbox" checked={selectedChannels.includes('crv')} readOnly />
-                      <span className="dot" style={{ background: 'var(--c-crv)', width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block', marginRight: '6px' }} />
-                      <span>CRV</span>
-                    </div>
-                    <div className="dropdown-item" onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedChannels(c => c.includes('stmb') ? c.filter(x => x !== 'stmb') : [...c, 'stmb']);
-                    }}>
-                      <input type="checkbox" checked={selectedChannels.includes('stmb')} readOnly />
-                      <span className="dot" style={{ background: 'var(--c-stmb)', width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block', marginRight: '6px' }} />
-                      <span>STMB</span>
-                    </div>
-                  </div>
-                )}
+              {/* Channel + Region combined pill */}
+              <div className="filter-group filter-group--combined">
+                <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
+                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
               </div>
-
-              {/* Region Dropdown */}
-              <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
 
               {/* Period Dropdown */}
               <div className="filter-dropdown">
