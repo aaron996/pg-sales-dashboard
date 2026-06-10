@@ -1444,7 +1444,7 @@ useEffect(() => {
 
         {view === 'dashboard' && (
           <>
-            <div className="alert anim-rise" style={{ animationDelay: '180ms' }}>
+            {userProfile?.role === 'dev' && <div className="alert anim-rise" style={{ animationDelay: '180ms' }}>
               <div className="alert-icon">⚠</div>
               <div className="alert-body">
                 <div className="alert-title">
@@ -1468,7 +1468,7 @@ useEffect(() => {
                 }
               }}>Xem stores →</button>
               <button className="btn btn-secondary btn-sm" onClick={() => setTeleOpen(true)}>Gửi alert</button>
-            </div>
+            </div>}
 
             <div className="kpi-grid">
               <Kpi animIdx={0}

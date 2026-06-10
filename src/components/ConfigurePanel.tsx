@@ -300,6 +300,8 @@ export default function ConfigurePanel({ onConfigChanged, interdistData, userPro
   const [customTargetsList, setCustomTargetsList] = useState<Record<string, number>>(() => ({ ...CUSTOM_TARGETS }));
   const [targetSearch, setTargetSearch] = useState('');
   const [editingTargetCode, setEditingTargetCode] = useState<string | null>(null);
+  const [exportPickerOpen, setExportPickerOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [newTargetVal, setNewTargetVal] = useState('');
 
   const activeStores = useMemo(() => {
@@ -378,102 +380,95 @@ export default function ConfigurePanel({ onConfigChanged, interdistData, userPro
 
 
   // --- TAB 4: EXCEL EXPORTER / DOWNLOAD TEMPLATE ---
-  const handleExportSystemConfigs = () => {
-    showToast('Đang xuất cấu hình hệ thống ra Excel...', 'loading');
+  const handleExportByType = (type: 'banggia' | 'sup' | 'target') => {
+    const today = new Date().toISOString().slice(0, 10);
     try {
-      // 1. Sheet Bảng Giá
-      const pRows = Object.entries(pricesList).map(([sku, val]) => ({
-        'SKU Sản phẩm': sku,
-        'Ngành hàng': sku.split('.')[0] || 'Chưa phân loại',
-        'Đơn Giá (VND)': val
-      }));
-      const wsPrices = XLSX.utils.json_to_sheet(pRows);
-
-      // 2. Sheet Ánh xạ Store
-      const smRows = (Object.values(storeMapList) as StoreMapInfo[]).map(m => ({
-        'Mã Cửa Hàng (Store Code)': m.storeCode,
-        'Tên Cửa Hàng (Store Name)': m.storeName,
-        'Supervisor phụ trách (SUP)': m.sup,
-        'Khu Vực (Region)': m.region
-      }));
-      const wsStoreMap = XLSX.utils.json_to_sheet(smRows);
-
-      // 3. Sheet Target hiện hành
-      const activeTargetsRows = activeStores.map(s => {
-        const key = s.code || s.name;
-        const currentTargetVal = customTargetsList[key] !== undefined ? customTargetsList[key] : s.baseTarget;
-        const isCustomized = customTargetsList[key] !== undefined ? 'Đã tùy chỉnh' : 'Target gốc Excel';
-
-        return {
-          'Mã Cửa Hàng': s.code,
-          'Tên Cửa Hàng': s.name,
-          'Dự Án': s.project,
-          'Target Gốc': s.baseTarget,
-          'Target Hiện Hành (VND)': currentTargetVal,
-          'Trạng Thế': isCustomized
-        };
-      });
-      const wsTargets = XLSX.utils.json_to_sheet(activeTargetsRows);
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, wsPrices, 'Bang_Gia_SKU');
-      XLSX.utils.book_append_sheet(wb, wsStoreMap, 'Danh_Sach_SUP_Store');
-      XLSX.utils.book_append_sheet(wb, wsTargets, 'Cau_Hinh_Targets');
-
-      XLSX.writeFile(wb, `Cau_Hinh_Hethong_Interdist_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      showToast('Đã tải tệp Excel cấu hình hệ thống thành công!', 'success');
+      if (type === 'banggia') {
+        showToast('Đang xuất Bảng giá...', 'loading');
+        const rows = Object.entries(pricesList).map(([sku, val]) => ({
+          'SKU Sản phẩm': sku,
+          'Ngành hàng': sku.split('.')[0] || 'Chưa phân loại',
+          'Đơn Giá (VND)': val
+        }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Bang_Gia_SKU');
+        XLSX.writeFile(wb, `Bang_Gia_SKU_${today}.xlsx`);
+        showToast('Đã xuất Bảng giá thành công!', 'success');
+      } else if (type === 'sup') {
+        showToast('Đang xuất danh sách SUP...', 'loading');
+        const rows = (Object.values(storeMapList) as StoreMapInfo[]).map(m => ({
+          'Mã Cửa Hàng (Store Code)': m.storeCode,
+          'Tên Cửa Hàng (Store Name)': m.storeName,
+          'Supervisor phụ trách (SUP)': m.sup,
+          'Khu Vực (Region)': m.region
+        }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Danh_Sach_SUP_Store');
+        XLSX.writeFile(wb, `Danh_Sach_SUP_Store_${today}.xlsx`);
+        showToast('Đã xuất danh sách SUP thành công!', 'success');
+      } else {
+        showToast('Đang xuất Target...', 'loading');
+        const rows = activeStores.map(s => {
+          const key = s.code || s.name;
+          const currentTargetVal = customTargetsList[key] !== undefined ? customTargetsList[key] : s.baseTarget;
+          const supInfo = storeMapList[s.code] || (Object.values(storeMapList) as StoreMapInfo[]).find(m => m.storeName === s.name);
+          return {
+            Date: today,
+            Store_id: s.code,
+            Store_name: s.name,
+            Category: s.project,
+            SUP: supInfo?.sup || '',
+            Target: currentTargetVal,
+            Project: s.project
+          };
+        });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Cau_Hinh_Targets');
+        XLSX.writeFile(wb, `Cau_Hinh_Targets_${today}.xlsx`);
+        showToast('Đã xuất Target thành công!', 'success');
+      }
     } catch (err) {
       showToast('Gặp lỗi khi xuất tệp tin Excel!', 'error');
       console.error(err);
     }
   };
 
-  const handleDownloadBlankTemplate = () => {
-    showToast('Đang tạo tệp Excel mẫu chuẩn...', 'loading');
+  const handleDownloadTemplateByType = (type: 'banggia' | 'sup' | 'target') => {
     try {
-      // 1. Sheet Bảng Giá
-      const pRows = [
-        {
-          'SKU Sản phẩm': 'CRV.HAIRCARE.PANTENE_300ML',
-          'Ngành hàng': 'CRV',
-          'Đơn Giá (VND)': 120000
-        }
-      ];
-      const wsPrices = XLSX.utils.json_to_sheet(pRows);
-
-      // 2. Sheet Ánh xạ Store
-      const smRows = [
-        {
+      if (type === 'banggia') {
+        const rows = [{ 'SKU Sản phẩm': 'CRV.HAIRCARE.PANTENE_300ML', 'Ngành hàng': 'CRV', 'Đơn Giá (VND)': 120000 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Bang_Gia_SKU');
+        XLSX.writeFile(wb, 'Mau_Bang_Gia_SKU.xlsx');
+        showToast('Đã tải mẫu Bảng giá!', 'success');
+      } else if (type === 'sup') {
+        const rows = [{
           'Mã Cửa Hàng (Store Code)': 'COOP_LY_THUONG_KIET',
           'Tên Cửa Hàng (Store Name)': 'Co.opmart Lý Thường Kiệt',
           'Supervisor phụ trách (SUP)': 'HOA',
           'Khu Vực (Region)': 'HCM'
-        }
-      ];
-      const wsStoreMap = XLSX.utils.json_to_sheet(smRows);
-
-      // 3. Sheet Target hiện hành
-      const activeTargetsRows = [
-        {
-          'Mã Cửa Hàng': 'COOP_LY_THUONG_KIET',
-          'Tên Cửa Hàng': 'Co.opmart Lý Thường Kiệt',
-          'Dự Án': 'crv',
-          'Target Gốc': 50000000,
-          'Target Hiện Hành (VND)': 50000000,
-          'Trạng Thế': 'Target gốc Excel'
-        }
-      ];
-      const wsTargets = XLSX.utils.json_to_sheet(activeTargetsRows);
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, wsPrices, 'Bang_Gia_SKU');
-      XLSX.utils.book_append_sheet(wb, wsStoreMap, 'Danh_Sach_SUP_Store');
-      XLSX.utils.book_append_sheet(wb, wsTargets, 'Cau_Hinh_Targets');
-
-      XLSX.writeFile(wb, `Mau_Cau_Hinh_Hethong_Interdist.xlsx`);
-      showToast('Đã tải tệp Excel mẫu chuẩn thành công!', 'success');
+        }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Danh_Sach_SUP_Store');
+        XLSX.writeFile(wb, 'Mau_Danh_Sach_SUP_Store.xlsx');
+        showToast('Đã tải mẫu SUP!', 'success');
+      } else {
+        const rows = [{
+          Date: '2026-05-01',
+          Store_id: 'COOP_LY_THUONG_KIET',
+          Store_name: 'Co.opmart Lý Thường Kiệt',
+          Category: 'CRV',
+          SUP: 'HOA',
+          Target: 50000000,
+          Project: 'CRV'
+        }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Cau_Hinh_Targets');
+        XLSX.writeFile(wb, 'Mau_Cau_Hinh_Targets.xlsx');
+        showToast('Đã tải mẫu Target!', 'success');
+      }
     } catch (err) {
-      showToast('Gặp lỗi khi tạo tệp tin mẫu chuẩn!', 'error');
+      showToast('Gặp lỗi khi tạo tệp tin mẫu!', 'error');
       console.error(err);
     }
   };
@@ -630,9 +625,10 @@ export default function ConfigurePanel({ onConfigChanged, interdistData, userPro
           // Rule 3: targets sheet
           else if (nameLower.includes('target') || nameLower.includes('chỉ tiêu') || nameLower.includes('chitieu')) {
             rows.forEach(r => {
-              const codeKey = Object.keys(r).find(k => 
-                k.toLowerCase().includes('mã cửa hàng') || 
-                k.toLowerCase().includes('mã ch') || 
+              const codeKey = Object.keys(r).find(k =>
+                k.toLowerCase() === 'store_id' ||
+                k.toLowerCase().includes('mã cửa hàng') ||
+                k.toLowerCase().includes('mã ch') ||
                 k.toLowerCase().includes('cửa hàng') ||
                 k.toLowerCase().includes('store') ||
                 k.toLowerCase().includes('mã')
@@ -1560,33 +1556,60 @@ export default function ConfigurePanel({ onConfigChanged, interdistData, userPro
                   </div>
 
                   <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <button
-                      onClick={handleExportSystemConfigs}
-                      className="btn btn-primary"
-                      style={{ width: '100%', justifyContent: 'center', padding: '12px', gap: '8px', display: 'flex', alignItems: 'center' }}
-                    >
-                      <Download size={14} />
-                      <span>Xuất tệp cấu hình (.xlsx)</span>
-                    </button>
-                    <button
-                      onClick={handleDownloadBlankTemplate}
-                      className="btn btn-secondary"
-                      style={{ 
-                        width: '100%', 
-                        justifyContent: 'center', 
-                        padding: '12px', 
-                        gap: '8px', 
-                        display: 'flex', 
-                        alignItems: 'center',
-                        backgroundColor: 'var(--c-bg)',
-                        border: '1px solid var(--c-accent)',
-                        borderColor: 'var(--c-accent)',
-                        color: 'var(--c-accent)'
-                      }}
-                    >
-                      <FileSpreadsheet size={14} />
-                      <span>Tải Excel mẫu chuẩn (.xlsx)</span>
-                    </button>
+                    {/* Export picker */}
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => { setExportPickerOpen(p => !p); setTemplatePickerOpen(false); }}
+                        className="btn btn-primary"
+                        style={{ width: '100%', justifyContent: 'center', padding: '12px', gap: '8px', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Download size={14} />
+                        <span>Xuất tệp cấu hình (.xlsx)</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 'auto', transform: exportPickerOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
+                      </button>
+                      {exportPickerOpen && (
+                        <>
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }} onClick={() => setExportPickerOpen(false)} />
+                          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--c-surface)', border: '1px solid var(--c-border-strong)', borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 9999, overflow: 'hidden' }}>
+                            {([['banggia', 'Bảng giá', 'Bang_Gia_SKU'], ['sup', 'SUP', 'Danh_Sach_SUP_Store'], ['target', 'Target', 'Cau_Hinh_Targets']] as const).map(([t, label, badge]) => (
+                              <button key={t} onClick={() => { handleExportByType(t); setExportPickerOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text-1)', fontSize: '12.5px', fontWeight: 600, textAlign: 'left' }} className="dropdown-item">
+                                <Download size={12} style={{ flexShrink: 0, color: 'var(--c-accent)' }} />
+                                <span>{label}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--c-text-3)', fontFamily: 'var(--font-mono)' }}>{badge}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Template picker */}
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => { setTemplatePickerOpen(p => !p); setExportPickerOpen(false); }}
+                        className="btn btn-secondary"
+                        style={{ width: '100%', justifyContent: 'center', padding: '12px', gap: '8px', display: 'flex', alignItems: 'center', backgroundColor: 'var(--c-bg)', border: '1px solid var(--c-accent)', color: 'var(--c-accent)' }}
+                      >
+                        <FileSpreadsheet size={14} />
+                        <span>Tải Excel mẫu chuẩn (.xlsx)</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 'auto', transform: templatePickerOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
+                      </button>
+                      {templatePickerOpen && (
+                        <>
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }} onClick={() => setTemplatePickerOpen(false)} />
+                          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--c-surface)', border: '1px solid var(--c-border-strong)', borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 9999, overflow: 'hidden' }}>
+                            {([['banggia', 'Bảng giá', 'Bang_Gia_SKU'], ['sup', 'SUP', 'Danh_Sach_SUP_Store'], ['target', 'Target', 'Cau_Hinh_Targets']] as const).map(([t, label, badge]) => (
+                              <button key={t} onClick={() => { handleDownloadTemplateByType(t); setTemplatePickerOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text-1)', fontSize: '12.5px', fontWeight: 600, textAlign: 'left' }} className="dropdown-item">
+                                <FileSpreadsheet size={12} style={{ flexShrink: 0, color: 'var(--c-accent)' }} />
+                                <span>{label}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--c-text-3)', fontFamily: 'var(--font-mono)' }}>{badge}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
                     <span style={{ display: 'block', textAlign: 'center', fontSize: '9px', color: 'var(--c-text-3)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>Dữ liệu kết xuất động theo thời gian thực từ Supabase Cloud</span>
                   </div>
                 </div>
