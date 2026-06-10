@@ -849,9 +849,6 @@ export default function ConfigurePanel({ onConfigChanged, interdistData, userPro
             <h2 className="config-title">
               Cấu hình Hệ thống
             </h2>
-            <span className="config-status-badge">
-              <span className="status-dot w-1.5 h-1.5 bg-emerald-500 rounded-full" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--c-good)' }}></span> Cloud Active (Supabase)
-            </span>
           </div>
           <p className="config-desc">
             Quản lý tập trung bảng đơn giá SKU, phân công giám sát (SUP), và thiết lập chỉ tiêu Target. Dữ liệu được đồng bộ hóa an toàn.
