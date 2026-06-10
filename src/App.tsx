@@ -1,3 +1,4 @@
+import { X as CloseIcon } from "lucide-react";
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -12,6 +13,7 @@ import {
   TrendChart, TelegramComposer, ExportReport, ExportExcelDialog, DashboardImportPortal,
   useTweaks, TweaksPanel, TweakSection, TweakRadio
 } from './components';
+import { RegionFilter, ALL_REGIONS } from './components/RegionFilter';
 import ConfigurePanel, { loadSystemConfigurations } from './components/ConfigurePanel';
 
 // Initialize global INTERDIST_DATA safe for IDX
@@ -569,7 +571,7 @@ const App = () => {
 
 
   const [selectedChannels, setSelectedChannels] = useState(['crv', 'stmb']);
-  const [selectedRegions, setSelectedRegions] = useState(['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG']);
+  const [selectedRegions, setSelectedRegions] = useState(ALL_REGIONS);
   const [periodTab, setPeriodTab] = useState('mtd'); // 'weekly', 'fullMonth', 'mtd', 'shifts'
 
   // Custom date range states
@@ -626,7 +628,6 @@ const App = () => {
   // Sticky header and dropdown open states
   const [isSticky, setIsSticky] = useState(false);
   const [channelOpen, setChannelOpen] = useState(false);
-  const [regionOpen, setRegionOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [scrollToStoreId, setScrollToStoreId] = useState(null);
@@ -654,7 +655,6 @@ const App = () => {
     const handleOutsideClick = (e) => {
       if (!e.target.closest('.filter-dropdown') && !e.target.closest('.daterange-dropdown') && !e.target.closest('.daterange-picker-container')) {
         setChannelOpen(false);
-        setRegionOpen(false);
         setPeriodOpen(false);
       }
     };
@@ -683,13 +683,6 @@ const App = () => {
     if (selectedChannels.length === 1) return selectedChannels[0].toUpperCase();
     return 'Chọn kênh';
   }, [selectedChannels]);
-
-  const regionLabel = useMemo(() => {
-    if (selectedRegions.length === 6) return 'Tất cả';
-    if (selectedRegions.length === 0) return 'Chọn vùng';
-    if (selectedRegions.length <= 2) return selectedRegions.join(', ');
-    return `${selectedRegions.length} vùng`;
-  }, [selectedRegions]);
 
   const periodLabel = useMemo(() => {
     const map = {
@@ -1228,7 +1221,7 @@ useEffect(() => {
             <div className="sticky-middle">
               {/* Channel Dropdown */}
               <div className="filter-dropdown">
-                <button className={`dropdown-trigger ${channelOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setChannelOpen(!channelOpen); setRegionOpen(false); setPeriodOpen(false); }}>
+                <button className={`dropdown-trigger ${channelOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setChannelOpen(!channelOpen); setPeriodOpen(false); }}>
                   <span className="dropdown-label-title">Kênh:</span>
                   <span className="dropdown-label-value">{channelLabel}</span>
                   <svg className="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -1256,30 +1249,11 @@ useEffect(() => {
               </div>
 
               {/* Region Dropdown */}
-              <div className="filter-dropdown">
-                <button className={`dropdown-trigger ${regionOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setRegionOpen(!regionOpen); setChannelOpen(false); setPeriodOpen(false); }}>
-                  <span className="dropdown-label-title">Vùng:</span>
-                  <span className="dropdown-label-value">{regionLabel}</span>
-                  <svg className="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                {regionOpen && (
-                  <div className="dropdown-menu scrollable">
-                    {['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG'].map(r => (
-                      <div key={r} className="dropdown-item" onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedRegions(rr => rr.includes(r) ? rr.filter(x => x !== r) : [...rr, r]);
-                      }}>
-                        <input type="checkbox" checked={selectedRegions.includes(r)} readOnly />
-                        <span>{r}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
 
               {/* Period Dropdown */}
               <div className="filter-dropdown">
-                <button className={`dropdown-trigger ${periodOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setPeriodOpen(!periodOpen); setChannelOpen(false); setRegionOpen(false); }}>
+                <button className={`dropdown-trigger ${periodOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setPeriodOpen(!periodOpen); setChannelOpen(false); }}>
                   <span className="dropdown-label-title">Kỳ:</span>
                   <span className="dropdown-label-value">{periodLabel}</span>
                   <svg className="dropdown-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -1362,11 +1336,7 @@ useEffect(() => {
 
               <div className="filter-group">
                 <span className="filter-label mono">REGION</span>
-                {['HN', 'EAST', 'HCM', 'NORTH', 'CENTRAL', 'MEKONG'].map(r => (
-                  <Chip key={r} active={selectedRegions.includes(r)} onClick={() => setSelectedRegions(rr => rr.includes(r) ? rr.filter(x => x !== r) : [...rr, r])}>
-                    {r}
-                  </Chip>
-                ))}
+                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} showTitle={false} />
               </div>
 
               <div className="filter-divider" />
@@ -1897,9 +1867,33 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
         </div>
         {full && (
           <div className="panel-head-tools">
-            <div className="search">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-              <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Tìm store, code..." />
+            <div className="search" style={{ gap: '4px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input
+                value={search}
+                onChange={e => onSearch(e.target.value)}
+                placeholder="Tìm store, code..."
+                aria-label="Tìm kiếm cửa hàng"
+                style={{
+                  minWidth: 0,
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: '12px',
+                  color: 'var(--c-text-1)'
+                }}
+              />
+              {search && (
+                <button
+                  onClick={() => onSearch('')}
+                  title="Xóa tìm kiếm"
+                  aria-label="Xóa tìm kiếm"
+                  className="btn btn-ghost btn-sm"
+                >
+                  <CloseIcon size={14} />
+                </button>
+              )}
             </div>
           </div>
         )}
