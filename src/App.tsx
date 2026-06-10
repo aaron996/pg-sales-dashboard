@@ -1,3 +1,4 @@
+import { X as CloseIcon } from "lucide-react";
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -1897,9 +1898,34 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
         </div>
         {full && (
           <div className="panel-head-tools">
-            <div className="search">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-              <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Tìm store, code..." />
+            <div className="search" style={{ gap: '4px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input
+                value={search}
+                onChange={e => onSearch(e.target.value)}
+                placeholder="Tìm store, code..."
+                aria-label="Tìm kiếm cửa hàng"
+                style={{
+                  minWidth: 0,
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: '12px',
+                  color: 'var(--c-text-1)'
+                }}
+              />
+              {search && (
+                <button
+                  onClick={() => onSearch('')}
+                  title="Xóa tìm kiếm"
+                  aria-label="Xóa tìm kiếm"
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '2px', border: 'none' }}
+                >
+                  <CloseIcon size={14} />
+                </button>
+              )}
             </div>
           </div>
         )}
