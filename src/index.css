@@ -1579,6 +1579,41 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 
+/* === Week pills (Channel BA view) === */
+.week-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.week-pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-2);
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--c-border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+.week-pill:hover {
+  color: var(--c-text-1);
+  background: var(--c-surface-2);
+  border-color: var(--c-accent);
+}
+.week-pill.active {
+  background: var(--c-accent);
+  color: #ffffff;
+  border-color: var(--c-accent);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.theme-dark .week-pill.active {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
 /* === Inline Period selector override for filter bar === */
 .filterbar .period-tabs-container {
   gap: 6px;
