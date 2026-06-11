@@ -121,6 +121,31 @@ const getFlatRawRows = (D) => {
   return synthRows;
 };
 
+const getISOWeek = (date: Date): { year: number; week: number } => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return {
+    year: d.getUTCFullYear(),
+    week: Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7),
+  };
+};
+
+const getWeekDateRange = (year: number, week: number): { start: string; end: string } => {
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const dayOfJan4 = jan4.getUTCDay() || 7;
+  const week1Mon = new Date(jan4);
+  week1Mon.setUTCDate(jan4.getUTCDate() - dayOfJan4 + 1);
+  const mon = new Date(week1Mon);
+  mon.setUTCDate(week1Mon.getUTCDate() + (week - 1) * 7);
+  const sun = new Date(mon);
+  sun.setUTCDate(mon.getUTCDate() + 6);
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return { start: fmt(mon), end: fmt(sun) };
+};
+
 /* === Main Dashboard — original layout fed from real xlsx data === */
 
 
@@ -626,6 +651,53 @@ const App = () => {
     }
   }, [dateRangeBounds]);
 
+  const [baWeekKey, setBaWeekKey] = useState<string | null>(null);
+
+  const last4Weeks = useMemo(() => {
+    const D = (window as any).INTERDIST_DATA;
+    if (!D) return [];
+    const allDates = [...new Set([
+      ...Object.keys(D.crv?.daily || {}),
+      ...Object.keys(D.stmb?.daily || {}),
+    ])] as string[];
+    const meta = D?.crv?.meta || D?.stmb?.meta;
+    const dataYear = meta?.start_day ? parseInt(meta.start_day.split('-')[0]) : 2026;
+    const weekMap = new Map<string, { year: number; week: number }>();
+    allDates.forEach(dateStr => {
+      const [dd, mm] = dateStr.split('/').map(Number);
+      const d = new Date(dataYear, mm - 1, dd);
+      const { year, week } = getISOWeek(d);
+      const key = `${year}-W${String(week).padStart(2, '0')}`;
+      if (!weekMap.has(key)) weekMap.set(key, { year, week });
+    });
+    return Array.from(weekMap.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, 4)
+      .map(([key, { year, week }]) => ({
+        key,
+        label: `W${String(week).padStart(2, '0')}`,
+        ...getWeekDateRange(year, week),
+      }))
+      .reverse();
+  }, [logTick]);
+
+  useEffect(() => {
+    if (view === 'ba' && last4Weeks.length > 0 && !baWeekKey) {
+      setBaWeekKey(last4Weeks[last4Weeks.length - 1].key);
+    }
+  }, [view, last4Weeks]);
+
+  const baWeekRange = useMemo(() => {
+    if (!baWeekKey || !last4Weeks.length) return null;
+    const w = last4Weeks.find(wk => wk.key === baWeekKey);
+    return w ? { start: w.start, end: w.end } : null;
+  }, [baWeekKey, last4Weeks]);
+
+  const baModel = useMemo(() => {
+    if (!baWeekRange) return null;
+    return buildModel('custom', baWeekRange);
+  }, [baWeekRange, logTick]);
+
   // Sticky header and dropdown open states
   const [isSticky, setIsSticky] = useState(false);
   const [channelOpen, setChannelOpen] = useState(false);
@@ -771,16 +843,17 @@ useEffect(() => {
 
   // Filter logic
   const filteredBA = useMemo(() => {
-    return M.STORES.filter(b => {
+    const stores = (view === 'ba' && baModel) ? baModel.STORES : M.STORES;
+    return stores.filter(b => {
       if (!selectedChannels.map(c => c.toUpperCase()).includes(b.channel)) return false;
-      if (!selectedRegions.includes(b.region)) return false;
+      if (view !== 'ba' && !selectedRegions.includes(b.region)) return false;
       if (baSearch) {
         const q = baSearch.toLowerCase();
         return b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [M, selectedChannels, selectedRegions, baSearch]);
+  }, [M, baModel, view, selectedChannels, selectedRegions, baSearch]);
 
   const filteredTrend = useMemo(() => {
     const D = (window as any).INTERDIST_DATA;
@@ -1219,14 +1292,27 @@ useEffect(() => {
             </div>
             
             <div className="sticky-middle">
-              {/* Channel + Region combined pill */}
-              <div className="filter-group filter-group--combined">
-                <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
-                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
-              </div>
+              {view === 'ba' ? (
+                <div className="week-pills">
+                  {last4Weeks.map(w => (
+                    <button
+                      key={w.key}
+                      className={`week-pill${baWeekKey === w.key ? ' active' : ''}`}
+                      onClick={() => setBaWeekKey(w.key)}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="filter-group filter-group--combined">
+                  <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
+                  <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
+                </div>
+              )}
 
-              {/* Period Dropdown */}
-              <div className="filter-dropdown">
+              {/* Period Dropdown — hidden in ba view (week pills handle period) */}
+              {view !== 'ba' && <div className="filter-dropdown">
                 <button className={`dropdown-trigger ${periodOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setPeriodOpen(!periodOpen); setChannelOpen(false); }}>
                   <span className="dropdown-label-title">Kỳ:</span>
                   <span className="dropdown-label-value">{periodLabel}</span>
@@ -1257,7 +1343,7 @@ useEffect(() => {
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
 
             <div className="sticky-right">
@@ -1296,6 +1382,20 @@ useEffect(() => {
 
           {view !== 'admin_users' && view !== 'configure' && (
             <div className="filterbar anim-rise" style={{ animationDelay: '120ms' }}>
+              {view === 'ba' ? (
+                <div className="week-pills">
+                  {last4Weeks.map(w => (
+                    <button
+                      key={w.key}
+                      className={`week-pill${baWeekKey === w.key ? ' active' : ''}`}
+                      onClick={() => setBaWeekKey(w.key)}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+              <>
               <div className="filter-group filter-group--combined">
                 <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
                 <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
@@ -1438,6 +1538,8 @@ useEffect(() => {
                   <button className={`period-tab-btn ${periodTab === 'shifts' ? 'active' : ''}`} onClick={() => setPeriodTab('shifts')}>Ca làm (Shifts)</button>
                 )}
               </div>
+              </>
+              )}
             </div>
           )}
 
