@@ -651,8 +651,6 @@ const App = () => {
     }
   }, [dateRangeBounds]);
 
-  const [baWeekKey, setBaWeekKey] = useState<string | null>(null);
-
   const last4Weeks = useMemo(() => {
     const D = (window as any).INTERDIST_DATA;
     if (!D) return [];
@@ -681,22 +679,10 @@ const App = () => {
       .reverse();
   }, [logTick]);
 
-  useEffect(() => {
-    if (view === 'ba' && last4Weeks.length > 0 && !baWeekKey) {
-      setBaWeekKey(last4Weeks[last4Weeks.length - 1].key);
-    }
-  }, [view, last4Weeks]);
-
-  const baWeekRange = useMemo(() => {
-    if (!baWeekKey || !last4Weeks.length) return null;
-    const w = last4Weeks.find(wk => wk.key === baWeekKey);
-    return w ? { start: w.start, end: w.end } : null;
-  }, [baWeekKey, last4Weeks]);
-
-  const baModel = useMemo(() => {
-    if (!baWeekRange) return null;
-    return buildModel('custom', baWeekRange);
-  }, [baWeekRange, logTick]);
+  const weekModels = useMemo(() => {
+    if (!last4Weeks.length) return [];
+    return last4Weeks.map(w => buildModel('custom', { start: w.start, end: w.end }));
+  }, [last4Weeks, logTick]);
 
   // Sticky header and dropdown open states
   const [isSticky, setIsSticky] = useState(false);
@@ -843,17 +829,16 @@ useEffect(() => {
 
   // Filter logic
   const filteredBA = useMemo(() => {
-    const stores = (view === 'ba' && baModel) ? baModel.STORES : M.STORES;
-    return stores.filter(b => {
+    return M.STORES.filter(b => {
       if (!selectedChannels.map(c => c.toUpperCase()).includes(b.channel)) return false;
-      if (view !== 'ba' && !selectedRegions.includes(b.region)) return false;
+      if (!selectedRegions.includes(b.region)) return false;
       if (baSearch) {
         const q = baSearch.toLowerCase();
         return b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [M, baModel, view, selectedChannels, selectedRegions, baSearch]);
+  }, [M, selectedChannels, selectedRegions, baSearch]);
 
   const filteredTrend = useMemo(() => {
     const D = (window as any).INTERDIST_DATA;
@@ -1292,27 +1277,14 @@ useEffect(() => {
             </div>
             
             <div className="sticky-middle">
-              {view === 'ba' ? (
-                <div className="week-pills">
-                  {last4Weeks.map(w => (
-                    <button
-                      key={w.key}
-                      className={`week-pill${baWeekKey === w.key ? ' active' : ''}`}
-                      onClick={() => setBaWeekKey(w.key)}
-                    >
-                      {w.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="filter-group filter-group--combined">
-                  <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
-                  <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
-                </div>
-              )}
+              {/* Channel + Region combined pill */}
+              <div className="filter-group filter-group--combined">
+                <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
+                <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
+              </div>
 
-              {/* Period Dropdown — hidden in ba view (week pills handle period) */}
-              {view !== 'ba' && <div className="filter-dropdown">
+              {/* Period Dropdown */}
+              <div className="filter-dropdown">
                 <button className={`dropdown-trigger ${periodOpen ? 'open' : ''}`} onClick={(e) => { e.stopPropagation(); setPeriodOpen(!periodOpen); setChannelOpen(false); }}>
                   <span className="dropdown-label-title">Kỳ:</span>
                   <span className="dropdown-label-value">{periodLabel}</span>
@@ -1343,7 +1315,7 @@ useEffect(() => {
                     ))}
                   </div>
                 )}
-              </div>}
+              </div>
             </div>
 
             <div className="sticky-right">
@@ -1382,20 +1354,6 @@ useEffect(() => {
 
           {view !== 'admin_users' && view !== 'configure' && (
             <div className="filterbar anim-rise" style={{ animationDelay: '120ms' }}>
-              {view === 'ba' ? (
-                <div className="week-pills">
-                  {last4Weeks.map(w => (
-                    <button
-                      key={w.key}
-                      className={`week-pill${baWeekKey === w.key ? ' active' : ''}`}
-                      onClick={() => setBaWeekKey(w.key)}
-                    >
-                      {w.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-              <>
               <div className="filter-group filter-group--combined">
                 <ChannelFilter selectedChannels={selectedChannels} onChange={setSelectedChannels} />
                 <RegionFilter selectedRegions={selectedRegions} onChange={setSelectedRegions} />
@@ -1538,8 +1496,6 @@ useEffect(() => {
                   <button className={`period-tab-btn ${periodTab === 'shifts' ? 'active' : ''}`} onClick={() => setPeriodTab('shifts')}>Ca làm (Shifts)</button>
                 )}
               </div>
-              </>
-              )}
             </div>
           )}
 
@@ -1726,7 +1682,7 @@ useEffect(() => {
         )}
 
         {view === 'ba' && (
-          <BAPanel data={filteredBA} onOpenBA={setSelectedBA} search={baSearch} onSearch={setBaSearch} full />
+          <BAPanel data={filteredBA} onOpenBA={setSelectedBA} search={baSearch} onSearch={setBaSearch} full weekData={last4Weeks.length > 0 ? { weeks: last4Weeks, models: weekModels } : null} />
         )}
 
         {view === 'info' && (
@@ -1906,9 +1862,16 @@ const fmtCompact = (v) => {
   return String(Math.round(v));
 };
 
-const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = false, full = false }: any) => {
+const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = false, full = false, weekData = null }: any) => {
   const sorted = [...data].sort((a, b) => b.pct - a.pct);
   const rows = compact ? sorted.slice(0, 8) : sorted;
+
+  // Build per-week revenue maps: weekRevMaps[i] = Map<storeUid, rev>
+  const weekRevMaps = weekData
+    ? weekData.models.map((wm: any) => new Map(wm.STORES.map((s: any) => [s.uid || s.id, s.rev])))
+    : [];
+
+  const hasWeeks = weekData && weekData.weeks.length > 0;
 
   return (
     <section className="panel anim-rise" style={{ animationDelay: full ? '0ms' : '900ms' }}>
@@ -1956,11 +1919,19 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
       </div>
 
       <div className="ba-table-wrapper">
-        <div className="ba-table">
+        <div className={`ba-table${hasWeeks ? ' ba-table--weeks' : ''}`}>
           <div className="ba-head">
             <div>Store · Code</div>
-            <div>Channel</div>
-            <div>Region</div>
+            {hasWeeks ? (
+              weekData.weeks.map((w: any) => (
+                <div key={w.key} className="r">{w.label}</div>
+              ))
+            ) : (
+              <>
+                <div>Channel</div>
+                <div>Region</div>
+              </>
+            )}
             <div className="r">Actual SO</div>
             <div className="r">Target</div>
             <div>Progress · last 7d</div>
@@ -1976,10 +1947,21 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
                   <div className="ba-name">{b.name}</div>
                   <div className="ba-id mono">{b.id || '—'}</div>
                 </div>
-                <div>
-                  <span className={`ch-tag ch-${b.channel.toLowerCase()}`}>{b.channel}</span>
-                </div>
-                <div><span className="region-tag">{b.region}</span></div>
+                {hasWeeks ? (
+                  weekRevMaps.map((map: any, wi: number) => {
+                    const rev = map.get(b.uid) ?? map.get(b.id) ?? 0;
+                    return (
+                      <div key={wi} className="r mono ba-rev">{fmtCompact(rev)}</div>
+                    );
+                  })
+                ) : (
+                  <>
+                    <div>
+                      <span className={`ch-tag ch-${b.channel.toLowerCase()}`}>{b.channel}</span>
+                    </div>
+                    <div><span className="region-tag">{b.region}</span></div>
+                  </>
+                )}
                 <div className="r mono ba-rev">{fmtCompact(b.rev)}</div>
                 <div className="r mono ba-tgt">{fmtCompact(b.target)}</div>
                 <div className="ba-progress-cell">

@@ -680,6 +680,10 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   align-items: center;
   font-size: 12px;
 }
+.ba-table--weeks .ba-head,
+.ba-table--weeks .ba-row {
+  grid-template-columns: minmax(200px, 2fr) 88px 88px 88px 88px 96px 96px minmax(160px, 1.5fr) 96px;
+}
 .ba-head {
   font-family: var(--font-mono);
   font-size: 9px;
