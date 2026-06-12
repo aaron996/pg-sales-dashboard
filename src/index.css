@@ -689,16 +689,26 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--c-text-2);
+  color: #ffffff;
   text-transform: uppercase;
-  background: var(--c-bg-2);
-  padding-top: 11px;
-  padding-bottom: 11px;
-  border-bottom: 1.5px solid var(--c-border-strong);
+  background: var(--c-accent);
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: none;
   border-radius: 6px 6px 0 0;
+  box-shadow: 0 1px 3px rgba(10, 66, 155, 0.18);
 }
 .ba-head .r { text-align: right; }
 .ba-head .c { text-align: center; }
+/* Divider between the Store column and the rest of the table */
+.ba-head > div:first-child {
+  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  padding-right: 12px;
+}
+.ba-row > div:first-child {
+  border-right: 1px solid var(--c-border);
+  padding-right: 12px;
+}
 .ba-row {
   border-bottom: 1px dashed var(--c-border);
   transition: background .12s;
@@ -741,7 +751,7 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 .ba-tgt { color: var(--c-text-3); }
 .ba-progress-cell {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
 }
