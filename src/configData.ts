@@ -306,3 +306,36 @@ export function getStoreTarget(storeName: string, storeCode: string, defaultTarg
 }
 
 
+
+// ============================================================
+// CURRENT-MONTH TARGET — single source of truth (placeholders)
+// ------------------------------------------------------------
+// The dashboard "Target" column shows each store's target for the
+// CURRENT month. Until a real per-store monthly feed is wired in,
+// these placeholders are used so the UI never renders an empty /
+// zero target. Keep every such magic number in this one block so
+// they don't get scattered across the codebase.
+// ============================================================
+
+/** Fallback current-month target (VND) when no real figure exists. */
+export const MONTHLY_TARGET_PLACEHOLDER = 250_000_000;
+
+/** Per-store current-month target overrides, keyed by store code. */
+export const MONTHLY_TARGET_OVERRIDES: Record<string, number> = {
+  // 'BIGC0016': 245_000_000,
+};
+
+/**
+ * Resolve the current-month target for a store.
+ * Priority: explicit override → real value from data → placeholder.
+ */
+export function getMonthlyTarget(storeCode: string, realTarget?: number): number {
+  const code = (storeCode || '').trim();
+  if (code && MONTHLY_TARGET_OVERRIDES[code] !== undefined) {
+    return MONTHLY_TARGET_OVERRIDES[code];
+  }
+  if (realTarget && realTarget > 0) {
+    return realTarget;
+  }
+  return MONTHLY_TARGET_PLACEHOLDER;
+}

@@ -4,8 +4,8 @@ import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { LoginScreen, UserProfileMenu, UserManagementPanel, UserProfile, PendingApprovalScreen } from './components/AuthAndUserMgmt';
 import { DEFAULT_BASELINE_DATA } from './data';
-import { 
-  STORE_MAPPING, STORE_SHIFT_CONFIGS, getStoreTarget 
+import {
+  STORE_MAPPING, STORE_SHIFT_CONFIGS, getStoreTarget, getMonthlyTarget
 } from './configData';
 import { processExcelData, calculateStatus } from './excelParser';
 import { 
@@ -279,6 +279,7 @@ const buildModel = (period, customRange?: { start: string, end: string }) => {
       id: s.code, uid: s.code || `stmb-${idx}`, name: s.store, channel: 'STMB', store: s.store,
       region: 'NORTH', // Lan Chi system is Northern VN
       rev: pd.actual, target: pd.target,
+      targetMonth: getMonthlyTarget(s.code, s.target_full || s.target),
       pct: pd.target > 0 ? (pd.actual / pd.target * 105) : 0,
       last7: synthLast7(pd.actual / (period === 'wtd' ? 3 : 13)), // pseudo daily revenue (Tr)
     };
@@ -289,6 +290,7 @@ const buildModel = (period, customRange?: { start: string, end: string }) => {
       id: s.code, uid: s.code || `crv-${idx}`, name: s.store, channel: 'CRV', store: s.store,
       region: s.region || 'NORTH',
       rev: pd.actual, target: pd.target,
+      targetMonth: getMonthlyTarget(s.code, s.target_full || s.target),
       pct: pd.target > 0 ? (pd.actual / pd.target * 105) : 0,
       last7: synthLast7(pd.actual / (period === 'wtd' ? 3 : 13)),
     };
@@ -1933,8 +1935,8 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
               </>
             )}
             <div className="r">Actual SO</div>
-            <div className="r">Target</div>
-            <div>Progress · last 7d</div>
+            <div className="r">Target · month</div>
+            <div>Progress</div>
             <div className="c">Status</div>
           </div>
           {rows.map((b, i) => {
@@ -1963,13 +1965,10 @@ const BAPanel = ({ data, onOpenBA, search = '', onSearch = () => {}, compact = f
                   </>
                 )}
                 <div className="r mono ba-rev">{fmtCompact(b.rev)}</div>
-                <div className="r mono ba-tgt">{fmtCompact(b.target)}</div>
+                <div className="r mono ba-tgt">{fmtCompact(b.targetMonth ?? b.target)}</div>
                 <div className="ba-progress-cell">
                   <div className="ba-progress">
                     <div className={`ba-progress-fill ${status} ba-progress-anim`} style={{ '--target-w': `${Math.min(pct, 100)}%`, animationDelay: `${i * 35 + 200}ms` }} />
-                  </div>
-                  <div className="ba-row-sparkline">
-                    <Sparkline data={b.last7} color={`var(--c-${status === 'good' ? 'good' : status === 'warn' ? 'warn' : status === 'mid' ? 'text-2' : 'bad'})`} width={56} height={18} fill={false} />
                   </div>
                   <span className={`mono ba-pct ${status}`}><AnimatedNumber value={pct} decimals={1} duration={900} />%</span>
                 </div>
