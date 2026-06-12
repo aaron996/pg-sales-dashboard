@@ -4289,6 +4289,79 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   gap: 8px;
 }
 
+/* --- Desktop Sidebar Overrides (Light Theme) --- */
+.app:not(.theme-dark) .sidebar {
+  background: var(--c-accent) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.app:not(.theme-dark) .brand {
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--c-border) !important;
+}
+
+/* User Profile card inside sidebar */
+.app:not(.theme-dark) .user-profile-summary {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.app:not(.theme-dark) .user-profile-summary:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+.app:not(.theme-dark) .user-profile-name {
+  color: #ffffff !important;
+}
+.app:not(.theme-dark) .role-text-lbl {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+.app:not(.theme-dark) .user-avatar {
+  border-color: #ffffff !important; /* White border for avatar */
+}
+
+/* Section headings */
+.app:not(.theme-dark) .nav-section {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Inactive nav items */
+.app:not(.theme-dark) .nav-item {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+.app:not(.theme-dark) .nav-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+/* Active nav items */
+.app:not(.theme-dark) .nav-item.active {
+  background: #ffffff !important; /* White background */
+  color: var(--c-accent) !important; /* Royal blue text */
+  font-weight: 700 !important;
+}
+
+/* Pill badge count */
+.app:not(.theme-dark) .nav-pill {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+.app:not(.theme-dark) .nav-item.active .nav-pill {
+  background: rgba(10, 66, 155, 0.08) !important;
+  color: var(--c-accent) !important;
+}
+
+/* Sidebar footer */
+.app:not(.theme-dark) .sidebar-foot {
+  border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.app:not(.theme-dark) .status-line {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+.app:not(.theme-dark) .status-source {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+
 
 
 
