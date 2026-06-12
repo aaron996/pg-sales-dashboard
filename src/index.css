@@ -682,7 +682,7 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 }
 .ba-table--weeks .ba-head,
 .ba-table--weeks .ba-row {
-  grid-template-columns: minmax(200px, 2fr) 88px 88px 88px 88px 96px 96px minmax(160px, 1.5fr) 96px;
+  grid-template-columns: minmax(180px, 1.2fr) 64px 64px 64px 64px 84px 120px minmax(140px, 1.1fr) 90px;
 }
 .ba-table--weeks .ba-head {
   font-size: 13px;
