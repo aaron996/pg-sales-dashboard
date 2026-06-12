@@ -686,12 +686,16 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 }
 .ba-head {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--c-text-3);
+  letter-spacing: 0.06em;
+  color: var(--c-text-2);
   text-transform: uppercase;
-  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg-2);
+  padding-top: 11px;
+  padding-bottom: 11px;
+  border-bottom: 1.5px solid var(--c-border-strong);
+  border-radius: 6px 6px 0 0;
 }
 .ba-head .r { text-align: right; }
 .ba-head .c { text-align: center; }
@@ -701,6 +705,11 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   cursor: pointer;
 }
 .ba-row:hover { background: var(--c-surface-2); }
+/* Status is conveyed by the pill, percentage, progress bar & sparkline — keep row text neutral so the table reads calmly instead of "all green". */
+.ba-row.good,
+.ba-row.warn,
+.ba-row.mid,
+.ba-row.bad { color: var(--c-text-1); }
 .ba-row.bad { background: linear-gradient(90deg, rgba(194,39,46,0.04), transparent); }
 .ba-row .r { text-align: right; }
 .ba-row .c { text-align: center; }
@@ -1743,8 +1752,8 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   display: flex;
   align-items: center;
   gap: 0;
-  background: var(--c-bg-2);
-  border: 1.5px solid var(--c-border);
+  background: var(--c-surface);
+  border: 1.5px solid var(--c-border-strong);
   border-radius: 8px;
   overflow: visible;
   padding: 0;
@@ -1819,11 +1828,12 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 }
 
 .dropdown-label-title {
-  color: var(--c-text-3);
-  font-weight: 500;
-  margin-right: 4px;
+  color: var(--c-text-2);
+  font-weight: 600;
+  margin-right: 5px;
   font-family: var(--font-mono);
   font-size: 9px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -1833,7 +1843,8 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--c-text-2);
+  color: var(--c-text-1);
+  font-weight: 600;
 }
 
 .dropdown-arrow {
